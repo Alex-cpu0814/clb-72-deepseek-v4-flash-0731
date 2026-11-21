@@ -1,0 +1,61 @@
+diff --git a/src/connection.c b/src/connection.c
+index 537e488..ddf8610 100644
+--- a/src/connection.c
++++ b/src/connection.c
+@@ -1583,6 +1583,44 @@ pysqlite_connection_exit(pysqlite_Connection* self, PyObject* args)
+     return Py_False;
+ }
+ 
++static PyObject *
++pysqlite_connection_setlimit(pysqlite_Connection* self, PyObject* args)
++{
++    int category, value, result;
++
++    if (!pysqlite_check_connection(self)) {
++        return NULL;
++    }
++
++    if (!PyArg_ParseTuple(args, "ii:setlimit", &category, &value)) {
++        return NULL;
++    }
++
++    result = sqlite3_limit(self->db, category, value);
++    assert(result >= 0);
++
++    return Py_BuildValue("i", result);
++}
++
++static PyObject *
++pysqlite_connection_getlimit(pysqlite_Connection* self, PyObject* args)
++{
++    int category, result;
++
++    if (!pysqlite_check_connection(self)) {
++        return NULL;
++    }
++
++    if (!PyArg_ParseTuple(args, "i:getlimit", &category)) {
++        return NULL;
++    }
++
++    result = sqlite3_limit(self->db, category, -1);
++    assert(result >= 0);
++
++    return Py_BuildValue("i", result);
++}
++
+ static char connection_doc[] =
+ PyDoc_STR("SQLite database connection object.");
+ 
+@@ -1627,6 +1665,11 @@ static PyMethodDef connection_methods[] = {
+         PyDoc_STR("Executes a multiple SQL statements at once. Non-standard.")},
+     {"create_collation", (PyCFunction)pysqlite_connection_create_collation, METH_VARARGS,
+         PyDoc_STR("Creates a collation function. Non-standard.")},
++    {"getlimit", (PyCFunction)pysqlite_connection_getlimit, METH_VARARGS,
++        PyDoc_STR("getlimit(category, /) -> int\n\nGet a connection runtime limit.")},
++    {"setlimit", (PyCFunction)pysqlite_connection_setlimit, METH_VARARGS,
++        PyDoc_STR("setlimit(category, limit, /) -> int\n\nSet a connection runtime limit. Attempts to increase a limit above its hard upper bound are silently truncated. Returns the new limit.")},
++
+     {"interrupt", (PyCFunction)pysqlite_connection_interrupt, METH_NOARGS,
+         PyDoc_STR("Abort any pending database operation. Non-standard.")},
+     {"iterdump", (PyCFunction)pysqlite_connection_iterdump, METH_NOARGS,

@@ -1,0 +1,93 @@
+diff --git a/src/jep/pyjobject.c b/src/jep/pyjobject.c
+index e4f3f9f..2296064 100755
+--- a/src/jep/pyjobject.c
++++ b/src/jep/pyjobject.c
+@@ -80,6 +80,7 @@ static jmethodID objectHashCode  = 0;
+ static jmethodID classGetMethods = 0;
+ static jmethodID classGetFields  = 0;
+ static jmethodID classGetName    = 0;
++static jmethodID systemIdentityHashCode = 0;
+ static PyObject *classnamePyJMethodsDict = NULL;
+ 
+ 
+@@ -252,6 +253,10 @@ static int pyjobject_init(JNIEnv *env, PyJobject_Object *pyjob) {
+     PyObject         *pyAttrName  = NULL;
+ 
+     PyObject    *cachedMethodList = NULL;
++    PyObject    *cacheKey         = NULL;
++    PyObject    *cacheKeyValue    = NULL;
++    jclass       systemClass      = NULL;
++    jint         classId          = 0;
+ 
+     (*env)->PushLocalFrame(env, 20);
+     // ------------------------------ call Class.getMethods()
+@@ -329,7 +334,54 @@ static int pyjobject_init(JNIEnv *env, PyJobject_Object *pyjob) {
+         classnamePyJMethodsDict = PyDict_New();
+     }
+ 
+-    cachedMethodList = PyDict_GetItem(classnamePyJMethodsDict, pyClassName);
++    /*
++     * The cache is keyed by the fully qualified Java class name and the
++     * identity of the java.lang.Class object.  A class name alone is not
++     * sufficient because the same class name can be defined by different
++     * class loaders, for example after a bundle redeploy in an OSGi
++     * environment.  Reusing methods cached for a class loaded by an old class
++     * loader against an object loaded by a new class loader causes
++     * assignability checks to fail (e.g. "Incorrect object type at 1").
++     * Each class loader defines its own Class object, so using the class
++     * identity hash keeps cache entries distinct while still reusing entries
++     * for the same Class loaded by the same class loader.
++     */
++    if(systemIdentityHashCode == 0) {
++        systemClass = (*env)->FindClass(env, "java/lang/System");
++        if(process_java_exception(env) || !systemClass)
++            goto EXIT_ERROR;
++        systemIdentityHashCode = (*env)->GetStaticMethodID(env,
++                systemClass,
++                "identityHashCode",
++                "(Ljava/lang/Object;)I");
++        (*env)->DeleteLocalRef(env, systemClass);
++        systemClass = NULL;
++        if(process_java_exception(env) || !systemIdentityHashCode)
++            goto EXIT_ERROR;
++    }
++
++    systemClass = (*env)->FindClass(env, "java/lang/System");
++    if(process_java_exception(env) || !systemClass)
++        goto EXIT_ERROR;
++    classId = (*env)->CallStaticIntMethod(env,
++                                          systemClass,
++                                          systemIdentityHashCode,
++                                          pyjob->clazz);
++    (*env)->DeleteLocalRef(env, systemClass);
++    systemClass = NULL;
++    if(process_java_exception(env))
++        goto EXIT_ERROR;
++
++    cacheKeyValue = PyInt_FromLong(classId);
++    if(!cacheKeyValue)
++        goto EXIT_ERROR;
++    cacheKey = PyTuple_Pack(2, pyClassName, cacheKeyValue);
++    Py_DECREF(cacheKeyValue);
++    cacheKeyValue = NULL;
++    if(!cacheKey)
++        goto EXIT_ERROR;
++
++    cachedMethodList = PyDict_GetItem(classnamePyJMethodsDict, cacheKey);
+     if(cachedMethodList == NULL) {
+         PyObject *pyjMethodList = NULL;
+         pyjMethodList = PyList_New(0);
+@@ -375,10 +427,12 @@ static int pyjobject_init(JNIEnv *env, PyJobject_Object *pyjob) {
+             Py_DECREF(pymethod);
+             (*env)->DeleteLocalRef(env, rmethod);
+         } // end of looping over available methods
+-        PyDict_SetItem(classnamePyJMethodsDict, pyClassName, pyjMethodList);
++        PyDict_SetItem(classnamePyJMethodsDict, cacheKey, pyjMethodList);
+         cachedMethodList = pyjMethodList;
++        Py_DECREF(pyjMethodList);
+         (*env)->DeleteLocalRef(env, methodArray);
+     } // end of setting up cache for this Java Class
++    Py_DECREF(cacheKey);
+ 
+     len = (int) PyList_Size(cachedMethodList);
+     for (i = 0; i < len; i++) {

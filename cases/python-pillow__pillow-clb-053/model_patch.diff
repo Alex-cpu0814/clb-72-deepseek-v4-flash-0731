@@ -1,0 +1,218 @@
+diff --git a/src/libImaging/Draw.c b/src/libImaging/Draw.c
+index 82f290b..e9f76c4 100644
+--- a/src/libImaging/Draw.c
++++ b/src/libImaging/Draw.c
+@@ -41,6 +41,7 @@
+ #define FLOOR(v) ((v) >= 0.0 ? (int)(v) : (int)floor(v))
+ 
+ #define INK8(ink) (*(UINT8 *)ink)
++#define INK16(ink) ((UINT16)((UINT8 *)ink)[0] | ((UINT16)((UINT8 *)ink)[1] << 8))
+ 
+ /*
+  * Rounds around zero (up=away from zero, down=towards zero)
+@@ -68,8 +69,13 @@ static inline void
+ point8(Imaging im, int x, int y, int ink) {
+     if (x >= 0 && x < im->xsize && y >= 0 && y < im->ysize) {
+         if (strncmp(im->mode, "I;16", 4) == 0) {
+-            im->image8[y][x * 2] = (UINT8)ink;
+-            im->image8[y][x * 2 + 1] = (UINT8)ink;
++            if (strcmp(im->mode, "I;16B") == 0) {
++                im->image8[y][x * 2] = (UINT8)(ink >> 8);
++                im->image8[y][x * 2 + 1] = (UINT8)ink;
++            } else {
++                im->image8[y][x * 2] = (UINT8)ink;
++                im->image8[y][x * 2 + 1] = (UINT8)(ink >> 8);
++            }
+         } else {
+             im->image8[y][x] = (UINT8)ink;
+         }
+@@ -98,7 +104,7 @@ point32rgba(Imaging im, int x, int y, int ink) {
+ 
+ static inline void
+ hline8(Imaging im, int x0, int y0, int x1, int ink) {
+-    int pixelwidth;
++    int i;
+ 
+     if (y0 >= 0 && y0 < im->ysize) {
+         if (x0 < 0) {
+@@ -112,11 +118,21 @@ hline8(Imaging im, int x0, int y0, int x1, int ink) {
+             x1 = im->xsize - 1;
+         }
+         if (x0 <= x1) {
+-            pixelwidth = strncmp(im->mode, "I;16", 4) == 0 ? 2 : 1;
+-            memset(
+-                im->image8[y0] + x0 * pixelwidth,
+-                (UINT8)ink,
+-                (x1 - x0 + 1) * pixelwidth);
++            if (strncmp(im->mode, "I;16", 4) == 0) {
++                if (strcmp(im->mode, "I;16B") == 0) {
++                    for (i = x0; i <= x1; i++) {
++                        im->image8[y0][i * 2] = (UINT8)(ink >> 8);
++                        im->image8[y0][i * 2 + 1] = (UINT8)ink;
++                    }
++                } else {
++                    for (i = x0; i <= x1; i++) {
++                        im->image8[y0][i * 2] = (UINT8)ink;
++                        im->image8[y0][i * 2 + 1] = (UINT8)(ink >> 8);
++                    }
++                }
++            } else {
++                memset(im->image8[y0] + x0, (UINT8)ink, x1 - x0 + 1);
++            }
+         }
+     }
+ }
+@@ -631,13 +647,17 @@ DRAW draw32rgba = {point32rgba, hline32rgba, line32rgba, polygon32rgba};
+ /* Interface                                                            */
+ /* -------------------------------------------------------------------- */
+ 
+-#define DRAWINIT()                           \
+-    if (im->image8) {                        \
+-        draw = &draw8;                       \
+-        ink = INK8(ink_);                    \
+-    } else {                                 \
+-        draw = (op) ? &draw32rgba : &draw32; \
+-        memcpy(&ink, ink_, sizeof(ink));     \
++#define DRAWINIT()                                \
++    if (im->image8) {                             \
++        draw = &draw8;                            \
++        if (strncmp(im->mode, "I;16", 4) == 0) {  \
++            ink = INK16(ink_);                    \
++        } else {                                  \
++            ink = INK8(ink_);                     \
++        }                                         \
++    } else {                                      \
++        draw = (op) ? &draw32rgba : &draw32;      \
++        memcpy(&ink, ink_, sizeof(ink));          \
+     }
+ 
+ int
+diff --git a/src/libImaging/Paste.c b/src/libImaging/Paste.c
+index acf5202..2350786 100644
+--- a/src/libImaging/Paste.c
++++ b/src/libImaging/Paste.c
+@@ -333,13 +333,36 @@ fill(
+     memcpy(&ink32, ink_, pixelsize);
+     memcpy(&ink8, ink_, sizeof(ink8));
+ 
+-    if (imOut->image8 || ink32 == 0L) {
++    if (imOut->image8) {
++        if (strncmp(imOut->mode, "I;16", 4) == 0) {
++            const UINT8 *ink16 = ink_;
++            for (y = 0; y < ysize; y++) {
++                UINT8 *out = imOut->image8[y + dy] + dx * 2;
++                for (x = 0; x < xsize; x++) {
++                    if (strcmp(imOut->mode, "I;16B") == 0) {
++                        out[0] = ink16[1];
++                        out[1] = ink16[0];
++                    } else {
++                        out[0] = ink16[0];
++                        out[1] = ink16[1];
++                    }
++                    out += 2;
++                }
++            }
++        } else {
++            dx *= pixelsize;
++            xsize *= pixelsize;
++            for (y = 0; y < ysize; y++) {
++                memset(imOut->image[y + dy] + dx, ink8, xsize);
++            }
++        }
++
++    } else if (ink32 == 0L) {
+         dx *= pixelsize;
+         xsize *= pixelsize;
+         for (y = 0; y < ysize; y++) {
+             memset(imOut->image[y + dy] + dx, ink8, xsize);
+         }
+-
+     } else {
+         for (y = 0; y < ysize; y++) {
+             INT32 *out = imOut->image32[y + dy] + dx;
+@@ -372,14 +395,35 @@ fill_mask_1(
+     memcpy(&ink8, ink_, sizeof(ink8));
+ 
+     if (imOut->image8) {
+-        for (y = 0; y < ysize; y++) {
+-            UINT8 *out = imOut->image8[y + dy] + dx;
+-            UINT8 *mask = imMask->image8[y + sy] + sx;
+-            for (x = 0; x < xsize; x++) {
+-                if (*mask++) {
+-                    *out = ink8;
++        if (strncmp(imOut->mode, "I;16", 4) == 0) {
++            const UINT8 *ink16 = ink_;
++            dx *= pixelsize;
++            for (y = 0; y < ysize; y++) {
++                UINT8 *out = imOut->image8[y + dy] + dx;
++                UINT8 *mask = imMask->image8[y + sy] + sx;
++                for (x = 0; x < xsize; x++) {
++                    if (*mask++) {
++                        if (strcmp(imOut->mode, "I;16B") == 0) {
++                            out[0] = ink16[1];
++                            out[1] = ink16[0];
++                        } else {
++                            out[0] = ink16[0];
++                            out[1] = ink16[1];
++                        }
++                    }
++                    out += pixelsize;
++                }
++            }
++        } else {
++            for (y = 0; y < ysize; y++) {
++                UINT8 *out = imOut->image8[y + dy] + dx;
++                UINT8 *mask = imMask->image8[y + sy] + sx;
++                for (x = 0; x < xsize; x++) {
++                    if (*mask++) {
++                        *out = ink8;
++                    }
++                    out++;
+                 }
+-                out++;
+             }
+         }
+ 
+@@ -415,19 +459,32 @@ fill_mask_L(
+     unsigned int tmp1;
+ 
+     if (imOut->image8) {
+-        for (y = 0; y < ysize; y++) {
+-            UINT8 *out = imOut->image8[y + dy] + dx;
+-            if (strncmp(imOut->mode, "I;16", 4) == 0) {
+-                out += dx;
++        if (strncmp(imOut->mode, "I;16", 4) == 0) {
++            dx *= pixelsize;
++            for (y = 0; y < ysize; y++) {
++                UINT8 *out = imOut->image8[y + dy] + dx;
++                UINT8 *mask = imMask->image8[y + sy] + sx;
++                for (x = 0; x < xsize; x++) {
++                    if (strcmp(imOut->mode, "I;16B") == 0) {
++                        *out = BLEND(*mask, *out, ink[1], tmp1);
++                        out++;
++                        *out = BLEND(*mask, *out, ink[0], tmp1);
++                    } else {
++                        *out = BLEND(*mask, *out, ink[0], tmp1);
++                        out++;
++                        *out = BLEND(*mask, *out, ink[1], tmp1);
++                    }
++                    out++, mask++;
++                }
+             }
+-            UINT8 *mask = imMask->image8[y + sy] + sx;
+-            for (x = 0; x < xsize; x++) {
+-                *out = BLEND(*mask, *out, ink[0], tmp1);
+-                if (strncmp(imOut->mode, "I;16", 4) == 0) {
+-                    out++;
++        } else {
++            for (y = 0; y < ysize; y++) {
++                UINT8 *out = imOut->image8[y + dy] + dx;
++                UINT8 *mask = imMask->image8[y + sy] + sx;
++                for (x = 0; x < xsize; x++) {
+                     *out = BLEND(*mask, *out, ink[0], tmp1);
++                    out++, mask++;
+                 }
+-                out++, mask++;
+             }
+         }
+ 

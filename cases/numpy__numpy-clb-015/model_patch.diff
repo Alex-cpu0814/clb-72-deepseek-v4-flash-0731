@@ -1,0 +1,19 @@
+diff --git a/numpy/core/src/multiarray/item_selection.c b/numpy/core/src/multiarray/item_selection.c
+index 762563e..d417fa9 100644
+--- a/numpy/core/src/multiarray/item_selection.c
++++ b/numpy/core/src/multiarray/item_selection.c
+@@ -1516,7 +1516,13 @@ PyArray_LexSort(PyObject *sort_keys, int axis)
+         char *valbuffer, *indbuffer;
+         int *swaps;
+ 
+-        if (N == 0 || maxelsize == 0 || sizeof(npy_intp) == 0) {
++        if (N == 0) {
++            if (!object) {
++                NPY_END_THREADS;
++            }
++            goto finish;
++        }
++        if (maxelsize == 0 || sizeof(npy_intp) == 0) {
+             goto fail;
+         }
+         valbuffer = PyDataMem_NEW(N * maxelsize);

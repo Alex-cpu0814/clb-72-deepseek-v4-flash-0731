@@ -1,0 +1,66 @@
+diff --git a/src/surface_fill.c b/src/surface_fill.c
+index b5f5474..7d4e293 100644
+--- a/src/surface_fill.c
++++ b/src/surface_fill.c
+@@ -793,6 +793,45 @@ surface_fill_blend_rgba_max (SDL_Surface *surface, SDL_Rect *rect, Uint32 color)
+     return result;
+ }
+ 
++static int
++surface_fill_clip (SDL_Surface *surface, SDL_Rect *rect)
++{
++    int x = rect->x;
++    int y = rect->y;
++    int width = rect->w;
++    int height = rect->h;
++    int max_x, max_y;
++
++    if (x < 0)
++    {
++        width += x;
++        x = 0;
++    }
++
++    if (y < 0)
++    {
++        height += y;
++        y = 0;
++    }
++
++    max_x = surface->w;
++    max_y = surface->h;
++
++    if (x + width > max_x)
++        width = max_x - x;
++
++    if (y + height > max_y)
++        height = max_y - y;
++
++    if (width <= 0 || height <= 0)
++        return 0;
++
++    rect->x = x;
++    rect->y = y;
++    rect->w = width;
++    rect->h = height;
++    return 1;
++}
+ 
+ int
+ surface_fill_blend (SDL_Surface *surface, SDL_Rect *rect, Uint32 color,
+@@ -800,6 +839,15 @@ surface_fill_blend (SDL_Surface *surface, SDL_Rect *rect, Uint32 color,
+ {
+     int result = -1;
+     int locked = 0;
++    SDL_Rect clip_rect;
++
++    /* Clip the rect to the surface boundaries, so the fill methods can assume
++       the rectangle lies entirely within the surface. A local copy is used so
++       the caller's rectangle is left unmodified. */
++    clip_rect = *rect;
++    if (!surface_fill_clip (surface, &clip_rect))
++        return 0;
++    rect = &clip_rect;
+ 
+     /* Lock the surface, if needed */
+     if (SDL_MUSTLOCK (surface))

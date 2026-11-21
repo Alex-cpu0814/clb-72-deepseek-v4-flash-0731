@@ -1,0 +1,33 @@
+diff --git a/scipy/integrate/_odepackmodule.c b/scipy/integrate/_odepackmodule.c
+index 80bfadb..986b25a 100644
+--- a/scipy/integrate/_odepackmodule.c
++++ b/scipy/integrate/_odepackmodule.c
+@@ -681,9 +681,25 @@ odepack_odeint(PyObject *dummy, PyObject *args, PyObject *kwdict)
+             itask = 1;  /* No more critical values */
+         }
+ 
+-        LSODA(ode_function, &neq, y, &t, tout_ptr, &itol, rtol, atol, &itask,
+-              &istate, &iopt, rwork, &lrw, iwork, &liw,
+-              ode_jacobian_function, &jt);
++        if (*tout_ptr == t) {
++            /*
++             * If the requested output time equals the current
++             * integration time, the step size is zero and there is
++             * nothing for LSODA to do.  Calling LSODA in this case is
++             * harmless once or twice (it returns with istate = 1,
++             * "Nothing was done"), but if it is called repeatedly with
++             * istate = 1 and tout = t, it aborts with an "apparent
++             * infinite loop" error.  This happens, e.g., if the time
++             * array contains many equal values.  To avoid that, simply
++             * copy the current solution to the output array and skip
++             * the call to LSODA.
++             */
++        }
++        else {
++            LSODA(ode_function, &neq, y, &t, tout_ptr, &itol, rtol, atol,
++                  &itask, &istate, &iopt, rwork, &lrw, iwork, &liw,
++                  ode_jacobian_function, &jt);
++        }
+         if (full_output) {
+             *((double *)PyArray_DATA(ap_hu) + (k-1)) = rwork[10];
+             *((double *)PyArray_DATA(ap_tcur) + (k-1)) = rwork[12];

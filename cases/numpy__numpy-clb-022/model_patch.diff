@@ -1,0 +1,13 @@
+diff --git a/numpy/core/src/multiarray/ctors.c b/numpy/core/src/multiarray/ctors.c
+index 63bf537..5e37e3e 100644
+--- a/numpy/core/src/multiarray/ctors.c
++++ b/numpy/core/src/multiarray/ctors.c
+@@ -2500,6 +2500,8 @@ PyArray_FromInterface(PyObject *origin)
+             &PyArray_Type, dtype,
+             n, dims, NULL, data,
+             dataflags, NULL, base);
++    /* PyArray_NewFromDescrAndBase steals a reference to dtype, even on failure */
++    dtype = NULL;
+     if (ret == NULL) {
+         goto fail;
+     }

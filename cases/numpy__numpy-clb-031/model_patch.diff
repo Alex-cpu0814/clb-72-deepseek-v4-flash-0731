@@ -1,0 +1,164 @@
+diff --git a/numpy/core/src/multiarraymodule.c b/numpy/core/src/multiarraymodule.c
+index 022d6f1..b56bffa 100644
+--- a/numpy/core/src/multiarraymodule.c
++++ b/numpy/core/src/multiarraymodule.c
+@@ -2326,50 +2326,75 @@ static PyObject *
+ PyArray_Choose(PyArrayObject *ip, PyObject *op, PyArrayObject *ret,
+                NPY_CLIPMODE clipmode)
+ {
+-    intp *sizes, offset;
+-    int n, elsize;
+-    intp i, m;
++    /* Use a multi-iterator to broadcast the index array and all of the
++       choice arrays to a common shape (which is also the shape of the
++       output array).  Previously only the index array was used to
++       determine the output shape and the choice arrays were required to
++       match its trailing dimensions, so cases such as an index array of
++       shape (2, 1) with choice arrays of shape (3,) did not work (see
++       ticket #925).
++
++       The multi-iterator uses zero strides to broadcast dimensions of
++       size 1 and also takes care of prepending 1s when the number of
++       dimensions differ.
++    */
++    int n, i, elsize;
++    intp m;
+     char *ret_data;
+     PyArrayObject **mps, *ap;
+-    intp *self_data, mi;
++    intp mi;
+     int copyret=0;
++    PyArrayMultiIterObject *multi = NULL;
+     ap = NULL;
+ 
+     /* Convert all inputs to arrays of a common type */
+     mps = PyArray_ConvertToCommonType(op, &n);
+     if (mps == NULL) return NULL;
+ 
+-    sizes = (intp *)_pya_malloc(n*sizeof(intp));
+-    if (sizes == NULL) goto fail;
++    /* The multi-iterator can hold at most NPY_MAXARGS arrays. */
++    if (n + 1 > NPY_MAXARGS) {
++        PyErr_SetString(PyExc_ValueError,
++                        "too many choices for choose");
++        goto fail;
++    }
+ 
+     ap = (PyArrayObject *)PyArray_ContiguousFromAny((PyObject *)ip,
+                                                     PyArray_INTP,
+                                                     0, 0);
+     if (ap == NULL) goto fail;
+ 
+-    /* Check the dimensions of the arrays */
++    /* Check that all the choice arrays were created. */
+     for(i=0; i<n; i++) {
+         if (mps[i] == NULL) goto fail;
+-        if (ap->nd < mps[i]->nd) {
+-            PyErr_SetString(PyExc_ValueError,
+-                            "too many dimensions");
+-            goto fail;
+-        }
+-        if (!PyArray_CompareLists(ap->dimensions+(ap->nd-mps[i]->nd),
+-                                  mps[i]->dimensions, mps[i]->nd)) {
+-            PyErr_SetString(PyExc_ValueError,
+-                            "array dimensions must agree");
+-            goto fail;
+-        }
+-        sizes[i] = PyArray_NBYTES(mps[i]);
+     }
+ 
++    /* Build a multi-iterator over the index array and all choices so
++       that the broadcasting is handled for us. */
++    multi = (PyArrayMultiIterObject *)_pya_malloc(sizeof(PyArrayMultiIterObject));
++    if (multi == NULL) {
++        PyErr_NoMemory();
++        goto fail;
++    }
++    PyObject_Init((PyObject *)multi, &PyArrayMultiIter_Type);
++    multi->numiter = n + 1;
++    multi->index = 0;
++    for(i=0; i<n+1; i++) multi->iters[i] = NULL;
++
++    multi->iters[0] = (PyArrayIterObject *)PyArray_IterNew((PyObject *)ap);
++    if (multi->iters[0] == NULL) goto fail;
++    for(i=0; i<n; i++) {
++        multi->iters[i+1] = (PyArrayIterObject *)PyArray_IterNew((PyObject *)mps[i]);
++        if (multi->iters[i+1] == NULL) goto fail;
++    }
++    if (PyArray_Broadcast(multi) < 0) goto fail;
++    PyArray_MultiIter_RESET(multi);
++
+     if (!ret) {
+         Py_INCREF(mps[0]->descr);
+         ret = (PyArrayObject *)PyArray_NewFromDescr(ap->ob_type,
+                                                     mps[0]->descr,
+-                                                    ap->nd,
+-                                                    ap->dimensions,
++                                                    multi->nd,
++                                                    multi->dimensions,
+                                                     NULL, NULL, 0,
+                                                     (PyObject *)ap);
+     }
+@@ -2377,7 +2402,7 @@ PyArray_Choose(PyArrayObject *ip, PyObject *op, PyArrayObject *ret,
+         PyArrayObject *obj;
+         int flags = NPY_CARRAY | NPY_UPDATEIFCOPY | NPY_FORCECAST;
+ 
+-        if (PyArray_SIZE(ret) != PyArray_SIZE(ap)) {
++        if (PyArray_SIZE(ret) != multi->size) {
+             PyErr_SetString(PyExc_TypeError,
+                             "invalid shape for output array.");
+             ret = NULL;
+@@ -2400,17 +2425,15 @@ PyArray_Choose(PyArrayObject *ip, PyObject *op, PyArrayObject *ret,
+     if (ret == NULL) goto fail;
+     elsize = ret->descr->elsize;
+     m = PyArray_SIZE(ret);
+-    self_data = (intp *)ap->data;
+     ret_data = ret->data;
+ 
+     for (i=0; i<m; i++) {
+-        mi = *self_data;
++        mi = *((intp *)multi->iters[0]->dataptr);
+         if (mi < 0 || mi >= n) {
+             switch(clipmode) {
+             case NPY_RAISE:
+                 PyErr_SetString(PyExc_ValueError,
+-                                "invalid entry in choice "\
+-                                "array");
++                                "invalid entry in choice array");
+                 goto fail;
+             case NPY_WRAP:
+                 if (mi < 0) {
+@@ -2426,17 +2449,16 @@ PyArray_Choose(PyArrayObject *ip, PyObject *op, PyArrayObject *ret,
+                 break;
+             }
+         }
+-        offset = i*elsize;
+-        if (offset >= sizes[mi]) {offset = offset % sizes[mi]; }
+-        memmove(ret_data, mps[mi]->data+offset, elsize);
+-        ret_data += elsize; self_data++;
++        memmove(ret_data, multi->iters[mi+1]->dataptr, elsize);
++        ret_data += elsize;
++        PyArray_MultiIter_NEXT(multi);
+     }
+ 
+     PyArray_INCREF(ret);
++    Py_XDECREF(multi);
+     for(i=0; i<n; i++) Py_XDECREF(mps[i]);
+     Py_DECREF(ap);
+     PyDataMem_FREE(mps);
+-    _pya_free(sizes);
+     if (copyret) {
+         PyObject *obj;
+         obj = ret->base;
+@@ -2447,10 +2469,10 @@ PyArray_Choose(PyArrayObject *ip, PyObject *op, PyArrayObject *ret,
+     return (PyObject *)ret;
+ 
+  fail:
++    Py_XDECREF(multi);
+     for(i=0; i<n; i++) Py_XDECREF(mps[i]);
+     Py_XDECREF(ap);
+     PyDataMem_FREE(mps);
+-    _pya_free(sizes);
+     PyArray_XDECREF_ERR(ret);
+     return NULL;
+ }

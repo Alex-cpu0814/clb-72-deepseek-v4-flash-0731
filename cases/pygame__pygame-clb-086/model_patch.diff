@@ -1,0 +1,18 @@
+diff --git a/src_c/draw.c b/src_c/draw.c
+index be4649a..cfe95a4 100644
+--- a/src_c/draw.c
++++ b/src_c/draw.c
+@@ -1614,6 +1614,13 @@ draw_fillpoly(SDL_Surface *dst, int *vx, int *vy, int n, Uint32 color)
+                 x1 = vx[i];
+             }
+             else {
++                /* Horizontal edge: draw it so the polygon's lower (and upper)
++                 * boundary rows are filled too, matching the inclusive way
++                 * scanline spans are drawn in x (issue #234). */
++                if (y == y1) {
++                    drawhorzlineclip(dst, color, MIN(vx[j], vx[i]), y,
++                                     MAX(vx[j], vx[i]));
++                }
+                 continue;
+             }
+             if ( ((y >= y1) && (y < y2)) ||

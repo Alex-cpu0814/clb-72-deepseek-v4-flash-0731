@@ -1,0 +1,54 @@
+diff --git a/src/spglib.c b/src/spglib.c
+index de3a78e..33fb4cf 100644
+--- a/src/spglib.c
++++ b/src/spglib.c
+@@ -1782,6 +1782,14 @@ static MagneticSymmetry *get_symmetry_with_site_tensors(
+     magnetic_symmetry = spn_get_operations_with_site_tensors(
+         &equiv_atoms, permutations, primitive_lattice, sym_nonspin, cell,
+         with_time_reversal, is_axial, symprec, angle_tolerance, mag_symprec);
++    if (magnetic_symmetry == NULL) {
++        free(*permutations);
++        *permutations = NULL;
++        free(equiv_atoms);
++        equiv_atoms = NULL;
++        goto err;
++    }
++
+     /* Set equivalent_atoms */
+     for (i = 0; i < cell->size; i++) {
+         equivalent_atoms[i] = equiv_atoms[i];
+@@ -1792,10 +1800,6 @@ static MagneticSymmetry *get_symmetry_with_site_tensors(
+     sym_free_symmetry(sym_nonspin);
+     sym_nonspin = NULL;
+ 
+-    if (magnetic_symmetry == NULL) {
+-        goto err;
+-    }
+-
+     spglib_error_code = SPGLIB_SUCCESS;
+     return magnetic_symmetry;
+ 
+diff --git a/src/spin.c b/src/spin.c
+index a26035a..5c0f33e 100644
+--- a/src/spin.c
++++ b/src/spin.c
+@@ -614,6 +614,8 @@ static int *get_symmetry_permutations(const MagneticSymmetry *magnetic_symmetry,
+                     continue;
+                 }
+                 if (cell->tensor_rank == COLLINEAR &&
++                    !(is_zero(cell->tensors[i], mag_symprec) &&
++                      is_zero(cell->tensors[j], mag_symprec)) &&
+                     !is_zero(cell->tensors[j] - scalar, mag_symprec)) {
+                     continue;
+                 }
+@@ -621,7 +623,9 @@ static int *get_symmetry_permutations(const MagneticSymmetry *magnetic_symmetry,
+                     diff[0] = cell->tensors[3 * j] - vector[0];
+                     diff[1] = cell->tensors[3 * j + 1] - vector[1];
+                     diff[2] = cell->tensors[3 * j + 2] - vector[2];
+-                    if (!is_zero_d3(diff, mag_symprec)) {
++                    if (!(is_zero_d3(&cell->tensors[3 * i], mag_symprec) &&
++                          is_zero_d3(&cell->tensors[3 * j], mag_symprec)) &&
++                        !is_zero_d3(diff, mag_symprec)) {
+                         continue;
+                     }
+                 }

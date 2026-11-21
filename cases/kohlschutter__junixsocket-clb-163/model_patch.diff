@@ -1,0 +1,53 @@
+diff --git a/junixsocket-native/src/main/c/org_newsclub_net_unix_NativeUnixSocket.c b/junixsocket-native/src/main/c/org_newsclub_net_unix_NativeUnixSocket.c
+index fc32a4e..77f26cf 100644
+--- a/junixsocket-native/src/main/c/org_newsclub_net_unix_NativeUnixSocket.c
++++ b/junixsocket-native/src/main/c/org_newsclub_net_unix_NativeUnixSocket.c
+@@ -114,6 +114,21 @@ typedef struct sockaddr_un
+ #include <unistd.h>
+ #include <stdbool.h>
+ 
++static int junixsocket_stat(const char *path, struct stat *buf) {
++#if defined(__linux__) && defined(__GLIBC__) && !defined(__CROSSCLANG_NODEPS__)
++    // Workaround for https://github.com/kohlschutter/junixsocket/issues/69
++    // The "stat" symbol is not available as a dynamic symbol on older glibc
++    // versions; use the underlying "__xstat" implementation instead, which is
++    // exported by all glibc versions.
++    // The "nodeps" variant must not reference glibc-internal symbols such as
++    // "__xstat" (it is built without linking against glibc so it can run on
++    // alternative libc implementations such as musl).
++    return __xstat(_STAT_VER, path, buf);
++#else
++    return stat(path, buf);
++#endif
++}
++
+ #ifndef FIONREAD
+ #include <sys/filio.h>
+ #endif 
+@@ -696,7 +711,7 @@ JNIEXPORT void JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_accept(
+         struct stat fdStat;
+ 
+         // It's OK when the file's gone, but not OK if it refers to another inode.
+-        int statRes = stat(su.sun_path, &fdStat);
++        int statRes = junixsocket_stat(su.sun_path, &fdStat);
+         if(statRes == 0) {
+             ino_t statInode = fdStat.st_ino;
+ 
+@@ -986,7 +1001,7 @@ JNIEXPORT jlong JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_bind(
+         inode = 0;
+     } else {
+ #if !defined(_WIN32)
+-        int statRes = stat(su.sun_path, &fdStat);
++        int statRes = junixsocket_stat(su.sun_path, &fdStat);
+         if(statRes == -1) {
+             myErr = errno;
+             _closeFd(env, fd, serverHandle);
+@@ -1115,7 +1130,7 @@ JNIEXPORT void JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_connect(
+         struct stat fdStat;
+ 
+         // It's OK when the file's gone, but not OK if it refers to another inode.
+-        int statRes = stat(su.sun_path, &fdStat);
++        int statRes = junixsocket_stat(su.sun_path, &fdStat);
+         if(statRes == 0) {
+             ino_t statInode = fdStat.st_ino;
+ 

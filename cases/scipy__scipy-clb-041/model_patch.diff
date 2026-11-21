@@ -1,0 +1,53 @@
+diff --git a/scipy/interpolate/_fitpack_impl.py b/scipy/interpolate/_fitpack_impl.py
+index 6fb4acd..87ca2a6 100644
+--- a/scipy/interpolate/_fitpack_impl.py
++++ b/scipy/interpolate/_fitpack_impl.py
+@@ -214,9 +214,12 @@ def splprep(x, w=None, u=None, ub=None, ue=None, k=3, task=0, s=None, t=None,
+ 
+     """
+     if task <= 0:
+-        _parcur_cache = {'t': array([], float), 'wrk': array([], float),
+-                         'iwrk': array([], dfitpack_int), 'u': array([], float),
+-                         'ub': 0, 'ue': 1}
++        _parcur_cache['t'] = array([], float)
++        _parcur_cache['wrk'] = array([], float)
++        _parcur_cache['iwrk'] = array([], dfitpack_int)
++        _parcur_cache['u'] = array([], float)
++        _parcur_cache['ub'] = 0
++        _parcur_cache['ue'] = 1
+     x = atleast_1d(x)
+     idim, m = x.shape
+     if per:
+@@ -244,7 +247,10 @@ def splprep(x, w=None, u=None, ub=None, ue=None, k=3, task=0, s=None, t=None,
+         else:
+             _parcur_cache['ue'] = ue
+     else:
+-        _parcur_cache['u'] = zeros(m, float)
++        # For task = 1, re-use the parameter values from the previous call,
++        # otherwise supply a dummy array (parcur computes them internally).
++        if task != 1 or len(_parcur_cache['u']) != m:
++            _parcur_cache['u'] = zeros(m, float)
+     if not (1 <= k <= 5):
+         raise TypeError('1 <= k= %d <=5 must hold' % k)
+     if not (-1 <= task <= 1):
+@@ -274,9 +280,17 @@ def splprep(x, w=None, u=None, ub=None, ue=None, k=3, task=0, s=None, t=None,
+     u = _parcur_cache['u']
+     ub = _parcur_cache['ub']
+     ue = _parcur_cache['ue']
+-    t = _parcur_cache['t']
+-    wrk = _parcur_cache['wrk']
+-    iwrk = _parcur_cache['iwrk']
++    if task == 1:
++        t = _parcur_cache['t']
++        wrk = _parcur_cache['wrk']
++        iwrk = _parcur_cache['iwrk']
++    else:
++        t = _parcur_cache['t']
++        if per:
++            wrk = zeros((m*(k + 1) + nest*(7 + idim + 5*k),), float)
++        else:
++            wrk = zeros((m*(k + 1) + nest*(6 + idim + 3*k),), float)
++        iwrk = zeros((nest,), dfitpack_int)
+     t, c, o = _fitpack._parcur(ravel(transpose(x)), w, u, ub, ue, k,
+                                task, ipar, s, t, nest, wrk, iwrk, per)
+     _parcur_cache['u'] = o['u']

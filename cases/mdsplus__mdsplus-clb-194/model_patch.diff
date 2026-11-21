@@ -1,0 +1,27 @@
+diff --git a/treeshr/TreeFindNode.c b/treeshr/TreeFindNode.c
+index a2ca795..a15c7b7 100644
+--- a/treeshr/TreeFindNode.c
++++ b/treeshr/TreeFindNode.c
+@@ -107,6 +107,11 @@ EXPORT int _TreeFindNodeWild(void *dbid, char const *path, int *nid_out, void **
+     status = WildParse(path, ctx, &wild);
+     if STATUS_NOT_OK
+       return(status);
++    if (ctx->terms == NULL) {
++      free(ctx);
++      *ctx_inout = NULL;
++      return TreeINVPATH;
++    }
+     *ctx_inout = ctx;
+     NODELIST *tail=NULL;
+     ctx->default_node = dblist->default_node;
+@@ -151,6 +156,10 @@ EXPORT int _TreeFindNode(void *dbid, char const *path, int *outnid)
+   status = WildParse(path, &ctx, &wild);
+   if STATUS_NOT_OK
+     goto done;
++  if (ctx.terms == NULL) {
++    status = TreeINVPATH;
++    goto done;
++  }
+   if (wild) {
+     status = TreeNOWILD;
+     goto done;

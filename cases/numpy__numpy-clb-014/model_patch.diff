@@ -1,0 +1,42 @@
+diff --git a/numpy/core/src/multiarray/getset.c b/numpy/core/src/multiarray/getset.c
+index bed9240..21d45e5 100644
+--- a/numpy/core/src/multiarray/getset.c
++++ b/numpy/core/src/multiarray/getset.c
+@@ -515,6 +515,7 @@ array_descr_set(PyArrayObject *self, PyObject *arg)
+      * current dtype.
+      */
+     if (newtype->type_num == NPY_VOID &&
++            !PyDataType_HASFIELDS(newtype) &&
+             PyDataType_ISUNSIZED(newtype) &&
+             newtype->elsize != PyArray_DESCR(self)->elsize) {
+         PyArray_DESCR_REPLACE(newtype);
+@@ -568,14 +569,26 @@ array_descr_set(PyArrayObject *self, PyObject *arg)
+ 
+         if (newtype->elsize < PyArray_DESCR(self)->elsize) {
+             /* if it is compatible, increase the size of the relevant axis */
+-            if (newtype->elsize == 0 ||
+-                    PyArray_DESCR(self)->elsize % newtype->elsize != 0) {
++            if (newtype->elsize == 0) {
++                /* Viewing as a fieldless structured void dtype with zero
++                 * itemsize sets the size of the relevant axis to zero. */
++                if (newtype->type_num != NPY_VOID) {
++                    PyErr_SetString(PyExc_ValueError,
++                            "When changing to a smaller dtype, its size must be a "
++                            "divisor of the size of original dtype");
++                    goto fail;
++                }
++                newdim = 0;
++            }
++            else if (PyArray_DESCR(self)->elsize % newtype->elsize != 0) {
+                 PyErr_SetString(PyExc_ValueError,
+                         "When changing to a smaller dtype, its size must be a "
+                         "divisor of the size of original dtype");
+                 goto fail;
+             }
+-            newdim = PyArray_DESCR(self)->elsize / newtype->elsize;
++            else {
++                newdim = PyArray_DESCR(self)->elsize / newtype->elsize;
++            }
+             PyArray_DIMS(self)[axis] *= newdim;
+             PyArray_STRIDES(self)[axis] = newtype->elsize;
+         }

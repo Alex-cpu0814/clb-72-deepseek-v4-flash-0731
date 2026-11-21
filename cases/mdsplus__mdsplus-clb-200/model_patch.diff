@@ -1,0 +1,63 @@
+diff --git a/tcl/tcl_directory.c b/tcl/tcl_directory.c
+index deb9e7a..a6966f1 100644
+--- a/tcl/tcl_directory.c
++++ b/tcl/tcl_directory.c
+@@ -67,18 +67,8 @@ static char *mds_owner(                   /* Return: ptr to "user" string
+ )
+ {
+   static char ownerString[512];
+-  int gid = owner >> 16;
+-  int uid = owner & 0xFFFF;
+-  char *groupname = 0;
++  unsigned int uid = owner;
+   char *username = 0;
+-#ifdef HAVE_GETGRGID
+-  struct group *g = getgrgid(gid);
+-  if (g)
+-  {
+-    groupname = alloca(strlen(g->gr_name) + 3);
+-    sprintf(groupname, "(%s)", g->gr_name);
+-  }
+-#endif
+ #ifdef HAVE_GETPWUID
+   struct passwd *p = getpwuid(uid);
+   if (p)
+@@ -87,11 +77,9 @@ static char *mds_owner(                   /* Return: ptr to "user" string
+     sprintf(username, "(%s)", p->pw_name);
+   }
+ #endif
+-  if (groupname == 0)
+-    groupname = "";
+   if (username == 0)
+     username = "";
+-  sprintf(ownerString, "gid=%d%s,uid=%d%s", gid, groupname, uid, username);
++  sprintf(ownerString, "uid=%u%s", uid, username);
+   return (ownerString);
+ }
+ 
+diff --git a/treeshr/TreePutRecord.c b/treeshr/TreePutRecord.c
+index 44cb67f..3401e51 100644
+--- a/treeshr/TreePutRecord.c
++++ b/treeshr/TreePutRecord.c
+@@ -127,7 +127,7 @@ int _TreePutRecord(void *dbid, int nid, struct descriptor *descriptor_ptr,
+   int compress_utility = utility_update == 2;
+ #ifndef _WIN32
+   if (!saved_uic)
+-    saved_uic = (getgid() << 16) | getuid();
++    saved_uic = getuid();
+ #endif
+   if (!(IS_OPEN(dblist)))
+     return TreeNOT_OPEN;
+diff --git a/treeshr/TreeSegments.c b/treeshr/TreeSegments.c
+index 712a704..6d9a1ca 100644
+--- a/treeshr/TreeSegments.c
++++ b/treeshr/TreeSegments.c
+@@ -985,7 +985,7 @@ inline static int begin_finish(vars_t *vars)
+ 
+ #ifndef _WIN32
+ static int saved_uic = 0;
+-static void init_saved_uic() { saved_uic = (getgid() << 16) | getuid(); }
++static void init_saved_uic() { saved_uic = getuid(); }
+ #endif
+ inline static void begin_local_nci(vars_t *vars,
+                                    const mdsdsc_a_t *initialValue)

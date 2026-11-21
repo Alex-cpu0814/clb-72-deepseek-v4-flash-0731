@@ -1,0 +1,50 @@
+diff --git a/src/freetype/ft_layout.c b/src/freetype/ft_layout.c
+index acc6f86..7e76d66 100644
+--- a/src/freetype/ft_layout.c
++++ b/src/freetype/ft_layout.c
+@@ -223,6 +223,7 @@ size_text(Layout *ftext,
+         ch = chars[i];
+         id = FTC_CMapCache_Lookup(context->charmap, context->id, -1, ch);
+         slots[length].id = id;
++        slots[length].ch = (FT_UInt32)ch;
+         if (have_kerning) {
+             error = FT_Get_Kerning(font, prev_id, id, FT_KERNING_UNFITTED,
+                                    &slots[length].kerning);
+@@ -371,6 +372,25 @@ position_glyphs(Layout *ftext)
+ 
+     }
+ 
++    /* A trailing space is nothing but padding; its glyph has a zero size so
++       its advance was not included in the boundary computed above.  The pen
++       position already includes the trailing space's advance, so extend the
++       boundary with it. */
++    if (n_glyphs && slot->ch == UNICODE_SPACE) {
++        if (pen.x > max_x) {
++            max_x = pen.x;
++        }
++        else if (pen.x < min_x) {
++            min_x = pen.x;
++        }
++        if (pen.y > max_y) {
++            max_y = pen.y;
++        }
++        else if (pen.y < min_y) {
++            min_y = pen.y;
++        }
++    }
++
+     fill_text_bounding_box(ftext, pen, min_x, max_x, min_y, max_y, top);
+ }
+ 
+diff --git a/src/freetype/ft_wrap.h b/src/freetype/ft_wrap.h
+index 3de71ce..32716a0 100644
+--- a/src/freetype/ft_wrap.h
++++ b/src/freetype/ft_wrap.h
+@@ -157,6 +157,7 @@ typedef struct fontglyph_ {
+ 
+ typedef struct glyphslot_ {
+     GlyphIndex_t id;
++    FT_UInt32 ch;         /* original character */
+     FontGlyph *glyph;
+     FT_Vector posn;
+     FT_Vector kerning;

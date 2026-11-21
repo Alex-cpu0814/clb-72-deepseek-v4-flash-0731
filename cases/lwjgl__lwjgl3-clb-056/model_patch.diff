@@ -1,0 +1,62 @@
+diff --git a/modules/lwjgl/vulkan/src/generated/java/org/lwjgl/vulkan/VkFramebufferCreateInfo.java b/modules/lwjgl/vulkan/src/generated/java/org/lwjgl/vulkan/VkFramebufferCreateInfo.java
+index 9a517c3..4ff115e 100644
+--- a/modules/lwjgl/vulkan/src/generated/java/org/lwjgl/vulkan/VkFramebufferCreateInfo.java
++++ b/modules/lwjgl/vulkan/src/generated/java/org/lwjgl/vulkan/VkFramebufferCreateInfo.java
+@@ -441,7 +441,7 @@ public class VkFramebufferCreateInfo extends Struct implements NativeResource {
+     /** Sets the specified value to the {@code attachmentCount} field of the specified {@code struct}. */
+     public static void nattachmentCount(long struct, int value) { UNSAFE.putInt(null, struct + VkFramebufferCreateInfo.ATTACHMENTCOUNT, value); }
+     /** Unsafe version of {@link #pAttachments(LongBuffer) pAttachments}. */
+-    public static void npAttachments(long struct, @Nullable LongBuffer value) { memPutAddress(struct + VkFramebufferCreateInfo.PATTACHMENTS, memAddressSafe(value)); nattachmentCount(struct, value == null ? 0 : value.remaining()); }
++    public static void npAttachments(long struct, @Nullable LongBuffer value) { memPutAddress(struct + VkFramebufferCreateInfo.PATTACHMENTS, memAddressSafe(value)); if (value != null) { nattachmentCount(struct, value.remaining()); } }
+     /** Unsafe version of {@link #width(int) width}. */
+     public static void nwidth(long struct, int value) { UNSAFE.putInt(null, struct + VkFramebufferCreateInfo.WIDTH, value); }
+     /** Unsafe version of {@link #height(int) height}. */
+@@ -455,7 +455,7 @@ public class VkFramebufferCreateInfo extends Struct implements NativeResource {
+      * @param struct the struct to validate
+      */
+     public static void validate(long struct) {
+-        if (nattachmentCount(struct) != 0) {
++        if ((nflags(struct) & VK12.VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT) == 0 && nattachmentCount(struct) != 0) {
+             check(memGetAddress(struct + VkFramebufferCreateInfo.PATTACHMENTS));
+         }
+     }
+diff --git a/modules/lwjgl/vulkan/src/templates/kotlin/vulkan/VKTypes.kt b/modules/lwjgl/vulkan/src/templates/kotlin/vulkan/VKTypes.kt
+index ebcfc4a..2137a9b 100644
+--- a/modules/lwjgl/vulkan/src/templates/kotlin/vulkan/VKTypes.kt
++++ b/modules/lwjgl/vulkan/src/templates/kotlin/vulkan/VKTypes.kt
+@@ -4496,10 +4496,34 @@ val VkFramebufferCreateInfo = struct(Module.VULKAN, "VkFramebufferCreateInfo") {
+     VkFramebufferCreateFlags("flags", "a bitmask of {@code VkFramebufferCreateFlagBits}")
+     VkRenderPass("renderPass", "a render pass defining what render passes the framebuffer will be compatible with. See <a target=\"_blank\" href=\"https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html\\#renderpass-compatibility\">Render Pass Compatibility</a> for details.")
+     AutoSize("pAttachments", optional = true)..uint32_t("attachmentCount", "the number of attachments.")
+-    VkImageView.const.p("pAttachments", "a pointer to an array of {@code VkImageView} handles, each of which will be used as the corresponding attachment in a render pass instance. If {@code flags} includes #FRAMEBUFFER_CREATE_IMAGELESS_BIT, this parameter is ignored.")
++    nullable..VkImageView.const.p("pAttachments", "a pointer to an array of {@code VkImageView} handles, each of which will be used as the corresponding attachment in a render pass instance. If {@code flags} includes #FRAMEBUFFER_CREATE_IMAGELESS_BIT, this parameter is ignored.")
+     uint32_t("width", "{@code width}, {@code height} and {@code layers} define the dimensions of the framebuffer. If the render pass uses multiview, then {@code layers} <b>must</b> be one and each attachment requires a number of layers that is greater than the maximum bit index set in the view mask in the subpasses in which it is used.")
+     uint32_t("height", "see {@code width}")
+     uint32_t("layers", "see {@code width}")
++
++    customMethod("""
++    /**
++     * Validates pointer members that should not be {@code NULL}.
++     *
++     * @param struct the struct to validate
++     */
++    public static void validate(long struct) {
++        if ((nflags(struct) & VK12.VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT) == 0 && nattachmentCount(struct) != 0) {
++            check(memGetAddress(struct + VkFramebufferCreateInfo.PATTACHMENTS));
++        }
++    }
++
++    /**
++     * Calls {@link #validate(long)} for each struct contained in the specified struct array.
++     *
++     * @param array the struct array to validate
++     * @param count the number of structs in {@code array}
++     */
++    public static void validate(long array, int count) {
++        for (int i = 0; i < count; i++) {
++            validate(array + Integer.toUnsignedLong(i) * SIZEOF);
++        }
++    }""")
+ }
+ 
+ val VkSubpassDescription = struct(Module.VULKAN, "VkSubpassDescription") {

@@ -1,0 +1,42 @@
+diff --git a/junixsocket-native/src/main/c/address.c b/junixsocket-native/src/main/c/address.c
+index 6a530ba..2110b50 100644
+--- a/junixsocket-native/src/main/c/address.c
++++ b/junixsocket-native/src/main/c/address.c
+@@ -259,11 +259,7 @@ JNIEXPORT jbyteArray JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_socknam
+                 return NULL;
+             }
+ 
+-#if defined(junixsocket_have_sun_len)
+-            len -= 2;
+-#else
+-            len -= 1;
+-#endif
++            len -= (socklen_t)offsetof(struct sockaddr_un, sun_path);
+             return sockAddrUnToBytes(env, (struct sockaddr_un *)&addr, len);
+         }
+ #if defined(_WIN32)
+@@ -394,10 +390,22 @@ JNIEXPORT jint JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_bytesToSockAd
+         case AF_UNIX:
+         {
+             struct sockaddr_un *addrUn = (struct sockaddr_un *) addr;
++            (*env)->GetByteArrayRegion(env, addressBytes, 0, len, (signed char*)addrUn->sun_path);
++            if(addrUn->sun_path[0] == 0) {
++                // Abstract namespace: the name is not null-terminated and consists of all
++                // bytes of sun_path, including the leading zero byte.
++                sockAddrLen = (size_t)offsetof(struct sockaddr_un, sun_path) + len;
++            } else {
++                // Filesystem path: the name is null-terminated (or fills the whole array).
++                size_t pathLen = strnlen(addrUn->sun_path, sizeof(addrUn->sun_path));
++                sockAddrLen = (size_t)offsetof(struct sockaddr_un, sun_path) + pathLen;
++                if(pathLen < sizeof(addrUn->sun_path)) {
++                    sockAddrLen += 1; // include null terminator
++                }
++            }
+ #if defined(junixsocket_have_sun_len)
+-            addrUn->sun_len = ((socklen_t)len >= SUN_NAME_MAX_LEN) ? SUN_NAME_MAX_LEN : len + 1; // including zero byte
++            addrUn->sun_len = (unsigned char)(sockAddrLen);
+ #endif
+-            (*env)->GetByteArrayRegion(env, addressBytes, 0, len, (signed char*)addrUn->sun_path);
+         }
+             break;
+ #if junixsocket_have_tipc

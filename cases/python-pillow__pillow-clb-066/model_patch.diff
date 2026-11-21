@@ -1,0 +1,119 @@
+diff --git a/_imaging.c b/_imaging.c
+index b7726a2..55774dc 100644
+--- a/_imaging.c
++++ b/_imaging.c
+@@ -2197,19 +2197,24 @@ textwidth(ImagingFontObject* self, const unsigned char* text)
+     return xsize;
+ }
+ 
+-void _font_text_asBytes(PyObject* encoded_string, unsigned char** text){
+-    PyObject* bytes = NULL;
++static void
++_font_text_asBytes(PyObject* encoded_string, unsigned char** text, PyObject **bytes){
++    PyObject* bytes_obj = NULL;
+ 
++    *bytes = NULL;
+     *text = NULL;
+ 
+-    if (PyUnicode_CheckExact(encoded_string)){
+-        bytes = PyUnicode_AsLatin1String(encoded_string);
++    if (PyUnicode_CheckExact(encoded_string)) {
++        bytes_obj = PyUnicode_AsLatin1String(encoded_string);
++        if (bytes_obj) {
++            *text = (unsigned char*)PyBytes_AsString(bytes_obj);
++            *bytes = bytes_obj;
++        }
+     } else if (PyBytes_Check(encoded_string)) {
+-        bytes = encoded_string;
+-    }
+-    if (bytes) {
+-        *text = (unsigned char*)PyBytes_AsString(bytes);
+-        return;
++        bytes_obj = encoded_string;
++        *text = (unsigned char*)PyBytes_AsString(bytes_obj);
++        *bytes = bytes_obj;
++        Py_INCREF(bytes_obj);
+     }
+ 
+ #if PY_VERSION_HEX < 0x03000000
+@@ -2233,6 +2238,7 @@ _font_getmask(ImagingFontObject* self, PyObject* args)
+     Glyph* glyph;
+ 
+     PyObject* encoded_string;
++    PyObject* bytes = NULL;
+ 
+     unsigned char* text;
+     char* mode = "";
+@@ -2241,13 +2247,15 @@ _font_getmask(ImagingFontObject* self, PyObject* args)
+         return NULL;
+     }
+ 
+-    _font_text_asBytes(encoded_string, &text);
++    _font_text_asBytes(encoded_string, &text, &bytes);
+     if (!text) {
++        Py_XDECREF(bytes);
+         return NULL;
+     }
+ 
+     im = ImagingNew(self->bitmap->mode, textwidth(self, text), self->ysize);
+     if (!im) {
++        Py_XDECREF(bytes);
+         return NULL;
+     }
+ 
+@@ -2273,9 +2281,11 @@ _font_getmask(ImagingFontObject* self, PyObject* args)
+         x = x + glyph->dx;
+         b = b + glyph->dy;
+     }
++    Py_XDECREF(bytes);
+     return PyImagingNew(im);
+ 
+   failed:
++    Py_XDECREF(bytes);
+     ImagingDelete(im);
+     return NULL;
+ }
+@@ -2285,15 +2295,18 @@ _font_getsize(ImagingFontObject* self, PyObject* args)
+ {
+     unsigned char* text;
+     PyObject* encoded_string;
++    PyObject* bytes = NULL;
+ 
+     if (!PyArg_ParseTuple(args, "O:getsize", &encoded_string))
+         return NULL;
+ 
+-    _font_text_asBytes(encoded_string, &text);
++    _font_text_asBytes(encoded_string, &text, &bytes);
+     if (!text) {
++        Py_XDECREF(bytes);
+         return NULL;
+     }
+ 
++    Py_XDECREF(bytes);
+     return Py_BuildValue("ii", textwidth(self, text), self->ysize);
+ }
+ 
+diff --git a/_imagingft.c b/_imagingft.c
+index 2118899..2c30d69 100644
+--- a/_imagingft.c
++++ b/_imagingft.c
+@@ -461,8 +461,10 @@ font_getsize(FontObject* self, PyObject* args)
+          *   Yifu Yu<root@jackyyf.com>, 2014-10-15
+          */
+         error = FT_Load_Glyph(face, index, FT_LOAD_DEFAULT|FT_LOAD_NO_BITMAP);
+-        if (error)
++        if (error) {
++            PyMem_Del(glyph_info);
+             return geterror(error);
++        }
+ 
+         if (i == 0 && face->glyph->metrics.horiBearingX < 0) {
+             xoffset = face->glyph->metrics.horiBearingX;
+@@ -509,6 +511,7 @@ font_getsize(FontObject* self, PyObject* args)
+         yoffset = PIXEL(self->face->size->metrics.ascender - yoffset);
+     }
+ 
++    PyMem_Del(glyph_info);
+     return Py_BuildValue(
+         "(ii)(ii)",
+         PIXEL(x), PIXEL(y_max - y_min),

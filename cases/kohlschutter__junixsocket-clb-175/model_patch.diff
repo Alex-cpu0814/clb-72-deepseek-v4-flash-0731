@@ -1,0 +1,44 @@
+diff --git a/junixsocket-common/src/main/java/org/newsclub/net/unix/AFCore.java b/junixsocket-common/src/main/java/org/newsclub/net/unix/AFCore.java
+index 7df1083..dfd73f9 100644
+--- a/junixsocket-common/src/main/java/org/newsclub/net/unix/AFCore.java
++++ b/junixsocket-common/src/main/java/org/newsclub/net/unix/AFCore.java
+@@ -131,8 +131,14 @@ class AFCore extends CleanableState {
+ 
+     int pos = dst.position();
+ 
+-    int count = NativeUnixSocket.receive(fdesc, buf, pos, remaining, socketAddressBuffer, options,
+-        ancillaryDataSupport, 0);
++    // The buffer used for the actual read may be our thread-local direct buffer (if dst is a heap
++    // buffer). In that case, the data is copied from the thread-local buffer starting at its
++    // current position (0), so we must pass that buffer's position, not dst.position(), as the
++    // offset to the native receive call.
++    int receiveOffset = (buf == dst) ? pos : buf.position();
++
++    int count = NativeUnixSocket.receive(fdesc, buf, receiveOffset, remaining, socketAddressBuffer,
++        options, ancillaryDataSupport, 0);
+     if (count == -1) {
+       return count;
+     }
+@@ -189,15 +195,14 @@ class AFCore extends CleanableState {
+ 
+       bufPos = buf.position();
+ 
+-      // Java 16: buf.put(bufPos, src, src.position(), Math.min(buf.limit(), src.limit()));
++      // Copy exactly "remaining" bytes from src into buf (buf was cleared and has at least
++      // "remaining" bytes of capacity). We must not rely on the absolute value of src.limit(),
++      // which may exceed buf.limit() even when src.remaining() fits into buf; otherwise stale
++      // thread-local buffer contents would be sent instead of the actual source data.
+       int limit = src.limit();
+-      if (limit > buf.limit()) {
+-        src.limit(buf.limit());
+-        buf.put(src);
+-        src.limit(limit);
+-      } else {
+-        buf.put(src);
+-      }
++      src.limit(src.position() + remaining);
++      buf.put(src);
++      src.limit(limit);
+ 
+       buf.position(bufPos);
+     }

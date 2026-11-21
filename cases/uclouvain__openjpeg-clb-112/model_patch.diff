@@ -1,0 +1,18 @@
+diff --git a/src/lib/openjp2/tcd.c b/src/lib/openjp2/tcd.c
+index 8f1c941..c32826c 100644
+--- a/src/lib/openjp2/tcd.c
++++ b/src/lib/openjp2/tcd.c
+@@ -268,7 +268,12 @@ void opj_tcd_makelayer( opj_tcd_t *tcd,
+                                                                         n = passno + 1;
+                                                                 continue;
+                                                         }
+-                                                        if (dd / dr >= thresh)
++                                                        /* Use a small relative epsilon in the comparison to account for
++                                                           floating point rounding differences (notably between 32-bit
++                                                           x87 extended precision and 64-bit SSE2). Otherwise the pass
++                                                           whose rdslope is equal to the minimum threshold could be
++                                                           dropped, thus breaking lossless rate allocation. */
++                                                        if (dd >= dr * thresh - 1e-12 * (1.0 + fabs(dr * thresh)))
+                                                                 n = passno + 1;
+                                                 }
+ 

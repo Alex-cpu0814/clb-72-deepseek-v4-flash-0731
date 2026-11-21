@@ -1,0 +1,104 @@
+diff --git a/src/surface.c b/src/surface.c
+index aa6b7b9..36a5ddf 100644
+--- a/src/surface.c
++++ b/src/surface.c
+@@ -1985,14 +1985,41 @@ surf_get_abs_parent (PyObject *self)
+     return owner;
+ }
+ 
++static Uint32
++_surface_read_pixel (SDL_Surface *surf, Uint8 *pixels, int x, int y)
++{
++    Uint8 *pixel = pixels + y * surf->pitch + x * surf->format->BytesPerPixel;
++    Uint32 color = 0;
++
++    switch (surf->format->BytesPerPixel) {
++    case 1:
++        color = *pixel;
++        break;
++    case 2:
++        color = *((Uint16 *) pixel);
++        break;
++    case 3:
++#if SDL_BYTEORDER == SDL_LIL_ENDIAN
++        color = (pixel[0]) + (pixel[1] << 8) + (pixel[2] << 16);
++#else
++        color = (pixel[2]) + (pixel[1] << 8) + (pixel[0] << 16);
++#endif
++        break;
++    case 4:
++        color = *((Uint32 *) pixel);
++        break;
++    default:
++        break;
++    }
++    return color;
++}
++
+ static PyObject *
+ surf_get_bounding_rect (PyObject *self, PyObject *args, PyObject *kwargs)
+ {
+     PyObject *rect;
+     SDL_Surface *surf = PySurface_AsSurface (self);
+-    SDL_PixelFormat *format = surf->format;
+     Uint8 *pixels = (Uint8 *) surf->pixels;
+-    Uint8 *pixel;
+     int x, y;
+     int min_x, min_y, max_x, max_y;
+     int min_alpha = 1;
+@@ -2019,11 +2046,6 @@ surf_get_bounding_rect (PyObject *self, PyObject *args, PyObject *kwargs)
+                      &keyr, &keyg, &keyb, &a);
+     }
+ 
+-    pixels = (Uint8 *) surf->pixels;
+-    if (SDL_BYTEORDER == SDL_BIG_ENDIAN) {
+-        pixels += format->BytesPerPixel - sizeof (Uint32);
+-    }
+-
+     min_y = 0;
+     min_x = 0;
+     max_x = surf->w;
+@@ -2032,8 +2054,8 @@ surf_get_bounding_rect (PyObject *self, PyObject *args, PyObject *kwargs)
+     found_alpha = 0;
+     for (y = max_y - 1; y >= min_y; --y) {
+         for (x = min_x; x < max_x; ++x) {
+-            pixel = (pixels + y * surf->pitch) + x*format->BytesPerPixel;
+-            SDL_GetRGBA (*((Uint32*)pixel), surf->format, &r, &g, &b, &a);
++            SDL_GetRGBA (_surface_read_pixel (surf, pixels, x, y),
++                         surf->format, &r, &g, &b, &a);
+             if ((a >= min_alpha && has_colorkey == 0) ||
+                 (has_colorkey != 0 && (r != keyr || g != keyg || b != keyb))) {
+                 found_alpha = 1;
+@@ -2048,8 +2070,8 @@ surf_get_bounding_rect (PyObject *self, PyObject *args, PyObject *kwargs)
+     found_alpha = 0;
+     for (x = max_x - 1; x >= min_x; --x) {
+         for (y = min_y; y < max_y; ++y) {
+-            pixel = (pixels + y * surf->pitch) + x*format->BytesPerPixel;
+-            SDL_GetRGBA (*((Uint32*)pixel), surf->format, &r, &g, &b, &a);
++            SDL_GetRGBA (_surface_read_pixel (surf, pixels, x, y),
++                         surf->format, &r, &g, &b, &a);
+             if ((a >= min_alpha && has_colorkey == 0) ||
+                 (has_colorkey != 0 && (r != keyr || g != keyg || b != keyb))) {
+                 found_alpha = 1;
+@@ -2065,8 +2087,8 @@ surf_get_bounding_rect (PyObject *self, PyObject *args, PyObject *kwargs)
+     for (y = min_y; y < max_y; ++y) {
+         min_y = y;
+         for (x = min_x; x < max_x; ++x) {
+-            pixel = (pixels + y * surf->pitch) + x*format->BytesPerPixel;
+-            SDL_GetRGBA (*((Uint32*)pixel), surf->format, &r, &g, &b, &a);
++            SDL_GetRGBA (_surface_read_pixel (surf, pixels, x, y),
++                         surf->format, &r, &g, &b, &a);
+             if ((a >= min_alpha && has_colorkey == 0) ||
+                 (has_colorkey != 0 && (r != keyr || g != keyg || b != keyb))) {
+                 found_alpha = 1;
+@@ -2081,8 +2103,8 @@ surf_get_bounding_rect (PyObject *self, PyObject *args, PyObject *kwargs)
+     for (x = min_x; x < max_x; ++x) {
+         min_x = x;
+         for (y = min_y; y < max_y; ++y) {
+-            pixel = (pixels + y * surf->pitch) + x*format->BytesPerPixel;
+-            SDL_GetRGBA (*((Uint32*)pixel), surf->format, &r, &g, &b, &a);
++            SDL_GetRGBA (_surface_read_pixel (surf, pixels, x, y),
++                         surf->format, &r, &g, &b, &a);
+             if ((a >= min_alpha && has_colorkey == 0) ||
+                 (has_colorkey != 0 && (r != keyr || g != keyg || b != keyb))) {
+                 found_alpha = 1;

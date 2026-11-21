@@ -1,0 +1,52 @@
+diff --git a/scipy/signal/medianfilter.c b/scipy/signal/medianfilter.c
+index 90d66c5..fb928ee 100644
+--- a/scipy/signal/medianfilter.c
++++ b/scipy/signal/medianfilter.c
+@@ -52,8 +52,8 @@ TYPE NAME(TYPE arr[], int n)                                            \
+         /* Nibble from each end towards middle, swapping misordered items */ \
+         piv = arr[lo];                                                  \
+         for (ll = lo+1, hh = hi;; ll++, hh--) {                         \
+-	    while (arr[ll] < piv) ll++;					\
+-	    while (arr[hh] > piv) hh--;					\
++	    while (ll <= hi && arr[ll] < piv) ll++;					\
++	    while (hh > lo && arr[hh] > piv) hh--;					\
+ 	    if (hh <= ll) break;					\
+ 	    ELEM_SWAP(TYPE, arr, ll, hh);				\
+         }                                                               \
+diff --git a/scipy/signal/signaltools.py b/scipy/signal/signaltools.py
+index bb43c0d..7dde832 100644
+--- a/scipy/signal/signaltools.py
++++ b/scipy/signal/signaltools.py
+@@ -1527,15 +1527,31 @@ def medfilt(volume, kernel_size=None):
+     for k in range(volume.ndim):
+         if (kernel_size[k] % 2) != 1:
+             raise ValueError("Each element of kernel_size should be odd.")
++
++    orig_shape = volume.shape
++    padded = False
+     if any(k > s for k, s in zip(kernel_size, volume.shape)):
+         warnings.warn('kernel_size exceeds volume extent: the volume will be '
+                       'zero-padded.')
++        # Zero-pad the volume so that the kernel never exceeds its extent.
++        # ``_order_filterND`` zero-pads at the array boundary anyway, so the
++        # extra border of zeros leaves the result unchanged. This also avoids
++        # running the underlying C implementation with a kernel larger than the
++        # volume, which can crash on some platforms (see gh-14401).
++        pad_width = [(0, int(k) - int(s)) if int(k) > int(s) else (0, 0)
++                     for k, s in zip(kernel_size, volume.shape)]
++        volume = np.pad(volume, pad_width, mode='constant')
++        padded = True
+ 
+     domain = np.ones(kernel_size, dtype=volume.dtype)
+ 
+     numels = np.prod(kernel_size, axis=0)
+     order = numels // 2
+-    return sigtools._order_filterND(volume, domain, order)
++    out = sigtools._order_filterND(volume, domain, order)
++    if padded:
++        # Crop the zero-padded result back to the original shape.
++        out = out[tuple(slice(0, s) for s in orig_shape)]
++    return out
+ 
+ 
+ def wiener(im, mysize=None, noise=None):

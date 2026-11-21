@@ -1,0 +1,86 @@
+diff --git a/src_c/event.c b/src_c/event.c
+index a4ae2d7..29e047e 100644
+--- a/src_c/event.c
++++ b/src_c/event.c
+@@ -1287,6 +1287,7 @@ pg_event_get(PyObject *self, PyObject *args)
+     int loop, num;
+     PyObject *type, *list;
+     int val;
++    int result;
+ 
+     if (PyTuple_Size(args) != 0 && PyTuple_Size(args) != 1)
+         return RAISE(PyExc_ValueError, "get requires 0 or 1 argument");
+@@ -1316,26 +1317,35 @@ pg_event_get(PyObject *self, PyObject *args)
+                     PyExc_TypeError,
+                     "type sequence must contain valid event types");
+             }
+-            if (SDL_PeepEvents(&event, 1, SDL_GETEVENT, val, val) < 0) {
++            result = SDL_PeepEvents(&event, 1, SDL_GETEVENT, val, val);
++            if (result < 0) {
+                 Py_DECREF(list);
+                 return RAISE(pgExc_SDLError, SDL_GetError());
+             }
+-            if(!_pg_event_append_to_list(list, &event))
+-                return NULL;
++            if (result == 1) {
++                if(!_pg_event_append_to_list(list, &event))
++                    return NULL;
++            }
+         }
+     }
+     else if (pg_IntFromObj(type, &val)) {
+-        if (SDL_PeepEvents(&event, 1, SDL_GETEVENT, val, val) < 0) {
++        result = SDL_PeepEvents(&event, 1, SDL_GETEVENT, val, val);
++        if (result < 0) {
+             Py_DECREF(list);
+             return RAISE(pgExc_SDLError, SDL_GetError());
+         }
+-        if(!_pg_event_append_to_list(list, &event))
+-            return NULL;
++        if (result == 1) {
++            if(!_pg_event_append_to_list(list, &event))
++                return NULL;
++        }
++    }
++    else {
++        Py_DECREF(list);
++        return RAISE(PyExc_TypeError,
++                     "get type must be numeric or a sequence");
+     }
+ 
+-    Py_DECREF(list);
+-    return RAISE(PyExc_TypeError,
+-                 "get type must be numeric or a sequence");
++    return list;
+ }
+ #endif /* IS_SDLv2 */
+ 
+@@ -1381,8 +1391,11 @@ pg_event_peek(PyObject *self, PyObject *args)
+     SDL_PumpEvents();
+     result = SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, mask);
+ 
+-    if (noargs)
+-        return pgEvent_New(&event);
++    if (noargs) {
++        if (result == 1)
++            return pgEvent_New(&event);
++        return PyInt_FromLong(0);
++    }
+     return PyInt_FromLong(result == 1);
+ }
+ #else /* IS_SDLv2 */
+@@ -1403,9 +1416,12 @@ pg_event_peek(PyObject *self, PyObject *args)
+     SDL_PumpEvents();
+ 
+     if (PyTuple_Size(args) == 0) {
+-        if (SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT) < 0)
++        result = SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
++        if (result < 0)
+             return RAISE(pgExc_SDLError, SDL_GetError());
+-        return pgEvent_New(&event);
++        if (result == 1)
++            return pgEvent_New(&event);
++        return PyInt_FromLong(0);
+     }
+ 
+     type = PyTuple_GET_ITEM(args, 0);

@@ -1,0 +1,30 @@
+diff --git a/scipy/signal/splinemodule.c b/scipy/signal/splinemodule.c
+index 58f1aa7..243537a 100644
+--- a/scipy/signal/splinemodule.c
++++ b/scipy/signal/splinemodule.c
+@@ -217,8 +217,10 @@ static char doc_FIRsepsym2d[] = "out = sepfir2d(input, hrow, hcol)\n"
+ "        The input signal.\n"
+ "    hrow : ndarray\n"
+ "        A row direction filter defined by the rank-1 arrays.\n"
++"        Must have odd length.\n"
+ "    hcol : ndarray\n"
+ "        A column direction filter defined by the rank-1 arrays.\n"
++"        Must have odd length.\n"
+ "\n"
+ "    Returns\n"
+ "    -------\n"
+@@ -246,7 +248,13 @@ static PyObject *FIRsepsym2d(PyObject *NPY_UNUSED(dummy), PyObject *args)
+   a_hcol = (PyArrayObject *)PyArray_ContiguousFromObject(hcol, thetype, 1, 1);
+   
+   if ((a_image == NULL) || (a_hrow == NULL) || (a_hcol==NULL)) goto fail;
+-  
++
++  if ((PyArray_DIMS(a_hrow)[0] % 2 == 0) || (PyArray_DIMS(a_hcol)[0] % 2 == 0)) {
++    PyErr_SetString(PyExc_ValueError,
++                    "hrow and hcol must have odd length.");
++    goto fail;
++  }
++
+   out = (PyArrayObject *)PyArray_SimpleNew(2, PyArray_DIMS(a_image), thetype);
+   if (out == NULL) goto fail;
+   M = PyArray_DIMS(a_image)[0];

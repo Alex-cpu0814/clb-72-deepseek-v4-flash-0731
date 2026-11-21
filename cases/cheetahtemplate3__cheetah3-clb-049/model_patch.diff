@@ -1,0 +1,15 @@
+diff --git a/Cheetah/c/_namemapper.c b/Cheetah/c/_namemapper.c
+index 6c472b9..d366a8a 100644
+--- a/Cheetah/c/_namemapper.c
++++ b/Cheetah/c/_namemapper.c
+@@ -132,6 +132,10 @@ static int getNameChunks(char *nameChunks[], char *name, char *nameCopy)
+     }
+     if (nameCopy > currChunk) {
+         nameChunks[currChunkNum++] = currChunk;
++    } else if (currChunkNum == 0) {
++        /* Empty name (e.g. getVar('$')): match Python's split('.') which
++           yields a single empty chunk, so nameChunks[0] is always valid. */
++        nameChunks[currChunkNum++] = currChunk;
+     }
+     return currChunkNum;
+ }

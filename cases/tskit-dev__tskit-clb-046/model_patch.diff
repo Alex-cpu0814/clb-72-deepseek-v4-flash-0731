@@ -1,0 +1,36 @@
+diff --git a/python/_tskitmodule.c b/python/_tskitmodule.c
+index 69afab9..996e517 100644
+--- a/python/_tskitmodule.c
++++ b/python/_tskitmodule.c
+@@ -9039,12 +9039,26 @@ Tree_get_newick(Tree *self, PyObject *args, PyObject *kwds)
+      * to be more precise with this though if we have large time values.
+      */
+     buffer_size *= precision + 10;
+-    buffer = PyMem_Malloc(buffer_size);
+-    if (buffer == NULL) {
+-        PyErr_NoMemory();
++    /* Note: the estimate above is not a hard upper bound, because branch
++     * lengths can require far more characters than this when time values are
++     * large (e.g. in simulations with a large Ne). We therefore grow the buffer
++     * in a loop until the conversion succeeds.
++     */
++    for (;;) {
++        buffer = PyMem_Malloc(buffer_size);
++        if (buffer == NULL) {
++            PyErr_NoMemory();
++            goto out;
++        }
++        err = tsk_convert_newick(self->tree, (tsk_id_t) root, precision, 0,
++                buffer_size, buffer);
++        if (err != TSK_ERR_BUFFER_OVERFLOW) {
++            break;
++        }
++        PyMem_Free(buffer);
++        buffer = NULL;
++        buffer_size *= 2;
+     }
+-    err = tsk_convert_newick(self->tree, (tsk_id_t) root, precision, 0,
+-            buffer_size, buffer);
+     if (err != 0) {
+         handle_library_error(err);
+         goto out;

@@ -1,0 +1,43 @@
+diff --git a/numpy/core/src/multiarray/compiled_base.c b/numpy/core/src/multiarray/compiled_base.c
+index 1e0c1eb..c5a72a5 100644
+--- a/numpy/core/src/multiarray/compiled_base.c
++++ b/numpy/core/src/multiarray/compiled_base.c
+@@ -1233,6 +1233,28 @@ arr_unravel_index(PyObject *self, PyObject *args, PyObject *kwds)
+         Py_INCREF(indices);
+     }
+ 
++    /*
++     * If the input is empty, there is nothing to convert, so use an empty
++     * intp array instead of forcing a cast on whatever (dummy) dtype the
++     * empty input happened to acquire (e.g. float64 for an empty list).
++     */
++    if (PyArray_SIZE(indices) == 0) {
++        PyArrayObject *empty_indices;
++        PyArray_Descr *intp_descr = PyArray_DescrFromType(NPY_INTP);
++        if (intp_descr == NULL) {
++            goto fail;
++        }
++        empty_indices = (PyArrayObject *)PyArray_NewFromDescr(
++                            &PyArray_Type, intp_descr,
++                            PyArray_NDIM(indices), PyArray_DIMS(indices),
++                            NULL, NULL, 0, NULL);
++        if (empty_indices == NULL) {
++            goto fail;
++        }
++        Py_DECREF(indices);
++        indices = empty_indices;
++    }
++
+     dtype = PyArray_DescrFromType(NPY_INTP);
+     if (dtype == NULL) {
+         goto fail;
+@@ -1341,7 +1363,8 @@ arr_unravel_index(PyObject *self, PyObject *args, PyObject *kwds)
+     }
+ 
+ 
+-    if (dimensions.len == 0 && PyArray_NDIM(indices) != 0) {
++    if (dimensions.len == 0 && PyArray_NDIM(indices) != 0 &&
++            PyArray_SIZE(indices) != 0) {
+         /*
+          * There's no index meaning "take the only element 10 times"
+          * on a zero-d array, so we have no choice but to error. (See gh-580)

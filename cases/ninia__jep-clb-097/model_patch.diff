@@ -1,0 +1,51 @@
+diff --git a/src/jep/jep.c b/src/jep/jep.c
+index 2480444..24aa1ee 100644
+--- a/src/jep/jep.c
++++ b/src/jep/jep.c
+@@ -226,7 +226,7 @@ JNIEXPORT void JNICALL Java_jep_Jep_setClassLoader
+  */
+ JNIEXPORT void JNICALL Java_jep_Jep_close
+ (JNIEnv *env, jobject obj, jlong tstate) {
+-    pyembed_thread_close((intptr_t) tstate);
++    pyembed_thread_close(env, (intptr_t) tstate);
+ }
+ 
+ 
+diff --git a/src/jep/pyembed.c b/src/jep/pyembed.c
+index 71c1195..4106427 100644
+--- a/src/jep/pyembed.c
++++ b/src/jep/pyembed.c
+@@ -309,18 +309,16 @@ intptr_t pyembed_thread_init(JNIEnv *env, jobject cl, jobject caller) {
+ }
+ 
+ 
+-void pyembed_thread_close(intptr_t _jepThread) {
++void pyembed_thread_close(JNIEnv *env, intptr_t _jepThread) {
+     JepThread     *jepThread;
+     PyObject      *tdict, *key;
+-    JNIEnv        *env;
+ 
+     jepThread = (JepThread *) _jepThread;
+     if(!jepThread) {
+         printf("WARNING: thread_close, invalid JepThread pointer.\n");
+         return;
+     }
+-    
+-    env = jepThread->env;
++
+     if(!env) {
+         printf("WARNING: thread_close, invalid env pointer.\n");
+         return;
+diff --git a/src/jep/pyembed.h b/src/jep/pyembed.h
+index f70d53a..bab4030 100644
+--- a/src/jep/pyembed.h
++++ b/src/jep/pyembed.h
+@@ -67,7 +67,7 @@ void pyembed_startup(void);
+ void pyembed_shutdown(void);
+ 
+ intptr_t pyembed_thread_init(JNIEnv*, jobject, jobject);
+-void pyembed_thread_close(intptr_t);
++void pyembed_thread_close(JNIEnv*, intptr_t);
+ 
+ void pyembed_close(void);
+ void pyembed_run(JNIEnv*, intptr_t, char*);

@@ -1,0 +1,28 @@
+diff --git a/src/main/c/jpy_jmethod.c b/src/main/c/jpy_jmethod.c
+index b7cbf03..7e62b61 100644
+--- a/src/main/c/jpy_jmethod.c
++++ b/src/main/c/jpy_jmethod.c
+@@ -680,12 +680,17 @@ JPy_JMethod* JOverloadedMethod_FindMethod(JNIEnv* jenv, JPy_JOverloadedMethod* o
+             return NULL;
+         }
+         if (result.method != NULL) {
+-            if (result.matchValue >= 100 * result.method->paramCount) {
+-                // We can't get any better.
+-                return result.method;
+-            } else if (result.matchValue > 0 && result.matchValue > bestResult.matchValue) {
+-                // We may have better matching methods overloads in the super class (if any)
+-                bestResult = result;
++            // We must not mix static and instance methods when searching through a hierarchy of classes:
++            // a static method declared in the current class must not be overridden by an instance method
++            // inherited from a super class and vice versa.
++            if (bestResult.method == NULL || result.method->isStatic == bestResult.method->isStatic) {
++                if (result.matchValue >= 100 * result.method->paramCount) {
++                    // We can't get any better.
++                    return result.method;
++                } else if (result.matchValue > 0 && result.matchValue > bestResult.matchValue) {
++                    // We may have better matching methods overloads in the super class (if any)
++                    bestResult = result;
++                }
+             }
+         }
+ 

@@ -1,0 +1,136 @@
+diff --git a/src_c/draw.c b/src_c/draw.c
+index 2ac3772..a38af8a 100644
+--- a/src_c/draw.c
++++ b/src_c/draw.c
+@@ -865,12 +865,11 @@ rect(PyObject *self, PyObject *args, PyObject *kwargs)
+ {
+     pgSurfaceObject *surfobj = NULL;
+     PyObject *colorobj = NULL, *rectobj = NULL;
+-    PyObject *points = NULL, *poly_args = NULL, *ret = NULL;
+     SDL_Rect *rect = NULL, temp;
+     SDL_Surface *surf = NULL;
+     Uint8 rgba[4];
+     Uint32 color;
+-    int t, l, b, r, width = 0, radius = 0; /* Default values. */
++    int width = 0, radius = 0; /* Default values. */
+     int x, y, w, h; /* Fields for the rounded rect draw to "normalize" into */
+     int top_left_radius = -1, top_right_radius = -1, bottom_left_radius = -1,
+         bottom_right_radius = -1;
+@@ -922,21 +921,104 @@ rect(PyObject *self, PyObject *args, PyObject *kwargs)
+          bottom_left_radius <= 0 && bottom_right_radius <= 0) ||
+         abs(rect->w) < 2 || abs(rect->h) < 2) {
+         if (width > 0) {
+-            l = rect->x;
+-            r = rect->x + rect->w - 1;
+-            t = rect->y;
+-            b = rect->y + rect->h - 1;
+-            points =
+-                Py_BuildValue("((ii)(ii)(ii)(ii))", l, t, r, t, r, b, l, b);
+-            poly_args =
+-                Py_BuildValue("(OONi)", surfobj, colorobj, points, width);
+-            if (NULL == poly_args) {
+-                return NULL; /* Exception already set. */
++            int i;
++            SDL_Rect rects[4];
++
++            /* Normalize the rect so w and h are positive. This makes
++               drawing the four edge rectangles straightforward. */
++            x = rect->x;
++            y = rect->y;
++            w = rect->w;
++            h = rect->h;
++
++            if (w < 0) {
++                x += w;
++                w = -w;
+             }
+ 
+-            ret = polygon(NULL, poly_args, NULL);
+-            Py_DECREF(poly_args);
+-            return ret;
++            if (h < 0) {
++                y += h;
++                h = -h;
++            }
++
++            /* When the border thickness covers half (or more) of the rect in
++               either direction, the top/bottom (or left/right) bands overlap
++               enough to fill the entire rect. Just fill it in that case. */
++            if (2 * width >= w || 2 * width >= h) {
++                sdlrect.x = x;
++                sdlrect.y = y;
++                sdlrect.w = w;
++                sdlrect.h = h;
++
++                SDL_GetClipRect(surf, &cliprect);
++
++                /* SDL_FillRect respects the clip rect already, but in order
++                   to return the drawn area, we need to do this here, and
++                   keep the pointer to the result in clipped */
++                if (!SDL_IntersectRect(&sdlrect, &cliprect, &clipped)) {
++                    return pgRect_New4(rect->x, rect->y, 0, 0);
++                }
++                pgSurface_Prep(surfobj);
++                pgSurface_Lock(surfobj);
++                result = SDL_FillRect(surf, &clipped, color);
++                pgSurface_Unlock(surfobj);
++                pgSurface_Unprep(surfobj);
++                if (result != 0)
++                    return RAISE(pgExc_SDLError, SDL_GetError());
++                return pgRect_New(&clipped);
++            }
++
++            /* Draw the rectangle as four filled rectangles so the corners
++               are square (instead of the beveled corners produced by drawing
++               an outline through polygon()). */
++            rects[0].x = x;
++            rects[0].y = y;
++            rects[0].w = w;
++            rects[0].h = width;
++
++            rects[1].x = x;
++            rects[1].y = y + h - width;
++            rects[1].w = w;
++            rects[1].h = width;
++
++            rects[2].x = x;
++            rects[2].y = y + width;
++            rects[2].w = width;
++            rects[2].h = h - 2 * width;
++
++            rects[3].x = x + w - width;
++            rects[3].y = y + width;
++            rects[3].w = width;
++            rects[3].h = h - 2 * width;
++
++            SDL_GetClipRect(surf, &cliprect);
++            pgSurface_Prep(surfobj);
++            pgSurface_Lock(surfobj);
++            for (i = 0; i < 4; ++i) {
++                if (!SDL_IntersectRect(&rects[i], &cliprect, &clipped)) {
++                    continue;
++                }
++                result = SDL_FillRect(surf, &clipped, color);
++                if (result != 0) {
++                    pgSurface_Unlock(surfobj);
++                    pgSurface_Unprep(surfobj);
++                    return RAISE(pgExc_SDLError, SDL_GetError());
++                }
++                if (clipped.x < drawn_area[0]) {
++                    drawn_area[0] = clipped.x;
++                }
++                if (clipped.y < drawn_area[1]) {
++                    drawn_area[1] = clipped.y;
++                }
++                if (clipped.x + clipped.w - 1 > drawn_area[2]) {
++                    drawn_area[2] = clipped.x + clipped.w - 1;
++                }
++                if (clipped.y + clipped.h - 1 > drawn_area[3]) {
++                    drawn_area[3] = clipped.y + clipped.h - 1;
++                }
++            }
++            pgSurface_Unlock(surfobj);
++            pgSurface_Unprep(surfobj);
+         }
+         else {
+             sdlrect.x = rect->x;

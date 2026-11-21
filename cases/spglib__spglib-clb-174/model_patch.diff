@@ -1,0 +1,60 @@
+diff --git a/src/spglib.c b/src/spglib.c
+index de3a78e..fcc1116 100644
+--- a/src/spglib.c
++++ b/src/spglib.c
+@@ -1782,6 +1782,10 @@ static MagneticSymmetry *get_symmetry_with_site_tensors(
+     magnetic_symmetry = spn_get_operations_with_site_tensors(
+         &equiv_atoms, permutations, primitive_lattice, sym_nonspin, cell,
+         with_time_reversal, is_axial, symprec, angle_tolerance, mag_symprec);
++    if (magnetic_symmetry == NULL) {
++        goto err;
++    }
++
+     /* Set equivalent_atoms */
+     for (i = 0; i < cell->size; i++) {
+         equivalent_atoms[i] = equiv_atoms[i];
+@@ -1792,14 +1796,22 @@ static MagneticSymmetry *get_symmetry_with_site_tensors(
+     sym_free_symmetry(sym_nonspin);
+     sym_nonspin = NULL;
+ 
+-    if (magnetic_symmetry == NULL) {
+-        goto err;
+-    }
+-
+     spglib_error_code = SPGLIB_SUCCESS;
+     return magnetic_symmetry;
+ 
+ err:
++    if (sym_nonspin != NULL) {
++        sym_free_symmetry(sym_nonspin);
++        sym_nonspin = NULL;
++    }
++    if (equiv_atoms != NULL) {
++        free(equiv_atoms);
++        equiv_atoms = NULL;
++    }
++    if (*permutations != NULL) {
++        free(*permutations);
++        *permutations = NULL;
++    }
+     spglib_error_code = SPGERR_SYMMETRY_OPERATION_SEARCH_FAILED;
+     return NULL;
+ }
+diff --git a/src/spin.c b/src/spin.c
+index 158c62e..80d8e97 100644
+--- a/src/spin.c
++++ b/src/spin.c
+@@ -408,8 +408,11 @@ static MagneticSymmetry *get_operations(
+                 }
+             }
+             if (k == cell->size) {
+-                /* Unreachable here! */
+-                return NULL;
++                /* This operation is not a symmetry operation for the cell
++                 * within symprec, even though it may be found by non-magnetic
++                 * symmetry search due to numerical tolerance. */
++                found = 0;
++                break;
+             }
+ 
+             // Skip if relevant tensors are zeros because they have nothing to

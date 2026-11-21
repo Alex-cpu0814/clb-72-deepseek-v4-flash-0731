@@ -1,0 +1,204 @@
+diff --git a/src/jep/util.c b/src/jep/util.c
+index c189b6b..2462f09 100644
+--- a/src/jep/util.c
++++ b/src/jep/util.c
+@@ -88,6 +88,15 @@ jclass JCHAR_TYPE    = NULL;
+ jclass JBYTE_TYPE    = NULL;
+ jclass JCLASS_TYPE   = NULL;
+ 
++// common Java exceptions to map to Python built-in exceptions
++jclass JARITHMETICEXCEPTION_TYPE   = NULL;
++jclass JCLASSCASTEXCEPTION_TYPE    = NULL;
++jclass JCLASSNOTFOUNDEXCEPTION_TYPE = NULL;
++jclass JILLEGALARGUMENTEXCEPTION_TYPE = NULL;
++jclass JINDEXOUTOFBOUNDSEXCEPTION_TYPE = NULL;
++jclass JIOEXCEPTION_TYPE           = NULL;
++jclass JNULLPOINTEREXCEPTION_TYPE  = NULL;
++
+ #if USE_NUMPY
+ jclass JBOOLEAN_ARRAY_TYPE = NULL;
+ jclass JBYTE_ARRAY_TYPE = NULL;
+@@ -563,12 +572,51 @@ int process_import_exception(JNIEnv *env) {
+ }
+ 
+ 
++// Determine the Python built-in exception type that corresponds to a
++// Java exception.  Common Java exceptions are mapped to the Python
++// built-in exception that best matches their meaning, all others are
++// mapped to RuntimeError.  Mapping ClassNotFoundException to
++// ImportError preserves correct import-hook behavior.
++PyObject* java_exception_to_pyexception(JNIEnv *env, jthrowable exception) {
++    PyObject *pyException = PyExc_RuntimeError;
++
++    // unchecked exceptions are all RuntimeError with the exception of
++    // the common ones that we map to Python built-ins below.
++    if(JARITHMETICEXCEPTION_TYPE != NULL &&
++            (*env)->IsInstanceOf(env, exception, JARITHMETICEXCEPTION_TYPE)) {
++        pyException = PyExc_ArithmeticError;
++    } else if(JILLEGALARGUMENTEXCEPTION_TYPE != NULL &&
++            (*env)->IsInstanceOf(env, exception, JILLEGALARGUMENTEXCEPTION_TYPE)) {
++        pyException = PyExc_ValueError;
++    } else if(JINDEXOUTOFBOUNDSEXCEPTION_TYPE != NULL &&
++            (*env)->IsInstanceOf(env, exception, JINDEXOUTOFBOUNDSEXCEPTION_TYPE)) {
++        pyException = PyExc_IndexError;
++    } else if(JCLASSCASTEXCEPTION_TYPE != NULL &&
++            (*env)->IsInstanceOf(env, exception, JCLASSCASTEXCEPTION_TYPE)) {
++        pyException = PyExc_TypeError;
++    } else if(JIOEXCEPTION_TYPE != NULL &&
++            (*env)->IsInstanceOf(env, exception, JIOEXCEPTION_TYPE)) {
++        pyException = PyExc_IOError;
++    } else if(JCLASSNOTFOUNDEXCEPTION_TYPE != NULL &&
++            (*env)->IsInstanceOf(env, exception, JCLASSNOTFOUNDEXCEPTION_TYPE)) {
++        // preserve import-hook behavior, ImportError lets the importer
++        // continue to search other finders.
++        pyException = PyExc_ImportError;
++    } else if(JNULLPOINTEREXCEPTION_TYPE != NULL &&
++            (*env)->IsInstanceOf(env, exception, JNULLPOINTEREXCEPTION_TYPE)) {
++        pyException = PyExc_RuntimeError;
++    }
++
++    return pyException;
++}
++
++
+ // convert java exception to pyerr.
+ // true (1) if an exception was processed.
+ int process_java_exception(JNIEnv *env) {
+     jthrowable exception = NULL;
+     jclass clazz;
+-    PyObject *pyException = PyExc_RuntimeError;
++    PyObject *pyException;
+     PyObject *jpyExc;
+     JepThread *jepThread;
+     jmethodID fillInStacktrace;
+@@ -599,6 +647,9 @@ int process_java_exception(JNIEnv *env) {
+         return 1;
+     }
+ 
++    // map the Java exception to the appropriate Python built-in
++    pyException = java_exception_to_pyexception(env, exception);
++
+     // fill in the stack trace here to make sure we don't lose it
+     fillInStacktrace = (*env)->GetMethodID(env, clazz, "getStackTrace",
+             "()[Ljava/lang/StackTraceElement;");
+@@ -994,6 +1045,71 @@ int cache_primitive_classes(JNIEnv *env) {
+     }
+ #endif
+ 
++    // cache global references to common Java exception classes so that
++    // they can be mapped to Python built-in exceptions later.
++    if(JARITHMETICEXCEPTION_TYPE == NULL) {
++        clazz = (*env)->FindClass(env, "java/lang/ArithmeticException");
++        if((*env)->ExceptionOccurred(env))
++            return 0;
++
++        JARITHMETICEXCEPTION_TYPE = (*env)->NewGlobalRef(env, clazz);
++        (*env)->DeleteLocalRef(env, clazz);
++    }
++
++    if(JCLASSCASTEXCEPTION_TYPE == NULL) {
++        clazz = (*env)->FindClass(env, "java/lang/ClassCastException");
++        if((*env)->ExceptionOccurred(env))
++            return 0;
++
++        JCLASSCASTEXCEPTION_TYPE = (*env)->NewGlobalRef(env, clazz);
++        (*env)->DeleteLocalRef(env, clazz);
++    }
++
++    if(JCLASSNOTFOUNDEXCEPTION_TYPE == NULL) {
++        clazz = (*env)->FindClass(env, "java/lang/ClassNotFoundException");
++        if((*env)->ExceptionOccurred(env))
++            return 0;
++
++        JCLASSNOTFOUNDEXCEPTION_TYPE = (*env)->NewGlobalRef(env, clazz);
++        (*env)->DeleteLocalRef(env, clazz);
++    }
++
++    if(JILLEGALARGUMENTEXCEPTION_TYPE == NULL) {
++        clazz = (*env)->FindClass(env, "java/lang/IllegalArgumentException");
++        if((*env)->ExceptionOccurred(env))
++            return 0;
++
++        JILLEGALARGUMENTEXCEPTION_TYPE = (*env)->NewGlobalRef(env, clazz);
++        (*env)->DeleteLocalRef(env, clazz);
++    }
++
++    if(JINDEXOUTOFBOUNDSEXCEPTION_TYPE == NULL) {
++        clazz = (*env)->FindClass(env, "java/lang/IndexOutOfBoundsException");
++        if((*env)->ExceptionOccurred(env))
++            return 0;
++
++        JINDEXOUTOFBOUNDSEXCEPTION_TYPE = (*env)->NewGlobalRef(env, clazz);
++        (*env)->DeleteLocalRef(env, clazz);
++    }
++
++    if(JIOEXCEPTION_TYPE == NULL) {
++        clazz = (*env)->FindClass(env, "java/io/IOException");
++        if((*env)->ExceptionOccurred(env))
++            return 0;
++
++        JIOEXCEPTION_TYPE = (*env)->NewGlobalRef(env, clazz);
++        (*env)->DeleteLocalRef(env, clazz);
++    }
++
++    if(JNULLPOINTEREXCEPTION_TYPE == NULL) {
++        clazz = (*env)->FindClass(env, "java/lang/NullPointerException");
++        if((*env)->ExceptionOccurred(env))
++            return 0;
++
++        JNULLPOINTEREXCEPTION_TYPE = (*env)->NewGlobalRef(env, clazz);
++        (*env)->DeleteLocalRef(env, clazz);
++    }
++
+     return 1;
+ }
+ 
+@@ -1079,6 +1195,34 @@ void unref_cache_primitive_classes(JNIEnv *env) {
+         JDOUBLE_ARRAY_TYPE = NULL;
+     }
+ #endif
++    if(JARITHMETICEXCEPTION_TYPE != NULL) {
++        (*env)->DeleteGlobalRef(env, JARITHMETICEXCEPTION_TYPE);
++        JARITHMETICEXCEPTION_TYPE = NULL;
++    }
++    if(JCLASSCASTEXCEPTION_TYPE != NULL) {
++        (*env)->DeleteGlobalRef(env, JCLASSCASTEXCEPTION_TYPE);
++        JCLASSCASTEXCEPTION_TYPE = NULL;
++    }
++    if(JCLASSNOTFOUNDEXCEPTION_TYPE != NULL) {
++        (*env)->DeleteGlobalRef(env, JCLASSNOTFOUNDEXCEPTION_TYPE);
++        JCLASSNOTFOUNDEXCEPTION_TYPE = NULL;
++    }
++    if(JILLEGALARGUMENTEXCEPTION_TYPE != NULL) {
++        (*env)->DeleteGlobalRef(env, JILLEGALARGUMENTEXCEPTION_TYPE);
++        JILLEGALARGUMENTEXCEPTION_TYPE = NULL;
++    }
++    if(JINDEXOUTOFBOUNDSEXCEPTION_TYPE != NULL) {
++        (*env)->DeleteGlobalRef(env, JINDEXOUTOFBOUNDSEXCEPTION_TYPE);
++        JINDEXOUTOFBOUNDSEXCEPTION_TYPE = NULL;
++    }
++    if(JIOEXCEPTION_TYPE != NULL) {
++        (*env)->DeleteGlobalRef(env, JIOEXCEPTION_TYPE);
++        JIOEXCEPTION_TYPE = NULL;
++    }
++    if(JNULLPOINTEREXCEPTION_TYPE != NULL) {
++        (*env)->DeleteGlobalRef(env, JNULLPOINTEREXCEPTION_TYPE);
++        JNULLPOINTEREXCEPTION_TYPE = NULL;
++    }
+ }
+ 
+ 
+diff --git a/src/jep/util.h b/src/jep/util.h
+index 1e642ec..512717d 100644
+--- a/src/jep/util.h
++++ b/src/jep/util.h
+@@ -110,6 +110,9 @@ void release_utf_char(JNIEnv*, jstring, const char*);
+ // int param is printTrace, send traceback to stderr
+ int process_py_exception(JNIEnv*, int);
+ 
++// map a java exception to a python built-in exception type.
++PyObject* java_exception_to_pyexception(JNIEnv*, jthrowable);
++
+ // convert java exception to pyerr.
+ // true (1) if an exception was processed.
+ int process_java_exception(JNIEnv*);

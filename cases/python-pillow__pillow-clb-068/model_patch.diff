@@ -1,0 +1,35 @@
+diff --git a/PIL/PngImagePlugin.py b/PIL/PngImagePlugin.py
+index 2bdf746..3785cbe 100644
+--- a/PIL/PngImagePlugin.py
++++ b/PIL/PngImagePlugin.py
+@@ -572,11 +572,26 @@ def _save(im, fp, filename, chunk=putchunk, check=0):
+                 alpha = b'\xFF' * transparency + b'\0'
+                 chunk(fp, b"tRNS", alpha[:alpha_bytes])
+         elif im.mode == "L":
+-            transparency = max(0, min(65535, transparency))
+-            chunk(fp, b"tRNS", o16(transparency))
++            if isinstance(transparency, (bytes, tuple)):
++                if "transparency" in im.encoderinfo:
++                    raise IOError("cannot use transparency for this mode")
++                # The transparency was not originally an L mode
++                # transparency value (grey level), so ignore it.
++            else:
++                transparency = max(0, min(65535, transparency))
++                chunk(fp, b"tRNS", o16(transparency))
+         elif im.mode == "RGB":
+-            red, green, blue = transparency
+-            chunk(fp, b"tRNS", o16(red) + o16(green) + o16(blue))
++            if isinstance(transparency, (bytes, int)):
++                if "transparency" in im.encoderinfo:
++                    raise IOError("cannot use transparency for this mode")
++                # The transparency was read from a P mode image and the
++                # image has since been converted to RGB.  P mode
++                # transparency (tRNS for colour type 3) is a per-palette
++                # entry alpha value, and cannot be represented as an RGB
++                # tRNS chunk (colour type 2), so ignore it.
++            else:
++                red, green, blue = transparency
++                chunk(fp, b"tRNS", o16(red) + o16(green) + o16(blue))
+         else:
+             if "transparency" in im.encoderinfo:
+                 # don't bother with transparency if it's an RGBA

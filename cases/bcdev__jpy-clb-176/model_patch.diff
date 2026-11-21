@@ -1,0 +1,28 @@
+diff --git a/src/main/c/jpy_jobj.c b/src/main/c/jpy_jobj.c
+index 198d0c5..07456a5 100644
+--- a/src/main/c/jpy_jobj.c
++++ b/src/main/c/jpy_jobj.c
+@@ -339,6 +339,11 @@ int JObj_setattro(JPy_JObj* self, PyObject* name, PyObject* value)
+         field = (JPy_JField*) oldValue;
+         type = field->type;
+ 
++        if (value == NULL) {
++            PyErr_SetString(PyExc_TypeError, "cannot delete Java object fields");
++            return -1;
++        }
++
+         JPy_GET_JNI_ENV_OR_RETURN(jenv, -1)
+ 
+         if (type == JPy_JBoolean) {
+@@ -589,6 +594,11 @@ int JObj_sq_ass_item(JPy_JObj* self, Py_ssize_t index, PyObject* pyItem)
+     JPy_JType* type;
+     JPy_JType* componentType;
+ 
++    if (pyItem == NULL) {
++        PyErr_SetString(PyExc_TypeError, "deleting from Java arrays is not supported");
++        return -1;
++    }
++
+     JPy_GET_JNI_ENV_OR_RETURN(jenv, -1)
+ 
+     type = (JPy_JType*) Py_TYPE(self);

@@ -1,0 +1,59 @@
+diff --git a/src/libImaging/Fill.c b/src/libImaging/Fill.c
+index e4e4b43..9737087 100644
+--- a/src/libImaging/Fill.c
++++ b/src/libImaging/Fill.c
+@@ -65,7 +65,7 @@ ImagingFill(Imaging im, const void *colour) {
+ Imaging
+ ImagingFillLinearGradient(const char *mode) {
+     Imaging im;
+-    int y;
++    int x, y;
+ 
+     if (strlen(mode) != 1) {
+         return (Imaging)ImagingError_ModeError();
+@@ -76,8 +76,24 @@ ImagingFillLinearGradient(const char *mode) {
+         return NULL;
+     }
+ 
+-    for (y = 0; y < 256; y++) {
+-        memset(im->image8[y], (unsigned char)y, 256);
++    if (im->pixelsize == 4) {
++        for (y = 0; y < 256; y++) {
++            if (im->type == IMAGING_TYPE_FLOAT32) {
++                FLOAT32 *row = (FLOAT32 *)im->image32[y];
++                for (x = 0; x < 256; x++) {
++                    row[x] = (FLOAT32)y;
++                }
++            } else {
++                INT32 *row = im->image32[y];
++                for (x = 0; x < 256; x++) {
++                    row[x] = y;
++                }
++            }
++        }
++    } else {
++        for (y = 0; y < 256; y++) {
++            memset(im->image8[y], (unsigned char)y, 256);
++        }
+     }
+ 
+     return im;
+@@ -103,9 +119,16 @@ ImagingFillRadialGradient(const char *mode) {
+             d = (int)sqrt(
+                 (double)((x - 128) * (x - 128) + (y - 128) * (y - 128)) * 2.0);
+             if (d >= 255) {
+-                im->image8[y][x] = 255;
++                d = 255;
++            }
++            if (im->pixelsize == 4) {
++                if (im->type == IMAGING_TYPE_FLOAT32) {
++                    ((FLOAT32 *)im->image32[y])[x] = (FLOAT32)d;
++                } else {
++                    im->image32[y][x] = d;
++                }
+             } else {
+-                im->image8[y][x] = d;
++                im->image8[y][x] = (unsigned char)d;
+             }
+         }
+     }

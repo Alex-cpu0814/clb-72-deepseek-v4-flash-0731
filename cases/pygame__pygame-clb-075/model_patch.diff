@@ -1,0 +1,56 @@
+diff --git a/docs/reST/ref/time.rst b/docs/reST/ref/time.rst
+index 723699c..691b654 100644
+--- a/docs/reST/ref/time.rst
++++ b/docs/reST/ref/time.rst
+@@ -54,6 +54,10 @@ resolution, in milliseconds, is given in the ``TIMER_RESOLUTION`` constant.
+    | :sl:`repeatedly create an event on the event queue`
+    | :sg:`set_timer(eventid, milliseconds) -> None`
+    | :sg:`set_timer(eventid, milliseconds, once) -> None`
++   | :sg:`set_timer(eventid, milliseconds, once, repeat) -> None`
++   | :sg:`set_timer(event, milliseconds) -> None`
++   | :sg:`set_timer(event, milliseconds, once) -> None`
++   | :sg:`set_timer(event, milliseconds, once, repeat) -> None`
+ 
+    Set an event type to appear on the event queue every given number of
+    milliseconds. The first event will not appear until the amount of time has
+@@ -66,7 +70,16 @@ resolution, in milliseconds, is given in the ``TIMER_RESOLUTION`` constant.
+ 
+    If the once argument is True, then only send the timer once.
+ 
++   Set the repeat argument to a positive number to have the event posted that
++   many times. If repeat is not passed (or is 0) the timer will post the event
++   repeatedly forever.
++
++   An Event object may be passed as the first argument. In this case the
++   timer will post events identical to the given Event object, including any
++   custom attributes that were set on it.
++
+    .. versionadded:: 2.0.0.dev3 once argument added.
++   .. versionadded:: 2.0.0.dev10 event object and repeat argument added.
+ 
+    .. ## pygame.time.set_timer ##
+ 
+diff --git a/src_c/doc/time_doc.h b/src_c/doc/time_doc.h
+index 5b6017d..81d9046 100644
+--- a/src_c/doc/time_doc.h
++++ b/src_c/doc/time_doc.h
+@@ -3,7 +3,7 @@
+ #define DOC_PYGAMETIMEGETTICKS "get_ticks() -> milliseconds\nget the time in milliseconds"
+ #define DOC_PYGAMETIMEWAIT "wait(milliseconds) -> time\npause the program for an amount of time"
+ #define DOC_PYGAMETIMEDELAY "delay(milliseconds) -> time\npause the program for an amount of time"
+-#define DOC_PYGAMETIMESETTIMER "set_timer(eventid, milliseconds) -> None\nset_timer(eventid, milliseconds, once) -> None\nrepeatedly create an event on the event queue"
++#define DOC_PYGAMETIMESETTIMER "set_timer(eventid, milliseconds) -> None\nset_timer(eventid, milliseconds, once) -> None\nset_timer(eventid, milliseconds, once, repeat) -> None\nset_timer(event, milliseconds) -> None\nset_timer(event, milliseconds, once) -> None\nset_timer(event, milliseconds, once, repeat) -> None\nrepeatedly create an event on the event queue"
+ #define DOC_PYGAMETIMECLOCK "Clock() -> Clock\ncreate an object to help track time"
+ #define DOC_CLOCKTICK "tick(framerate=0) -> milliseconds\nupdate the clock"
+ #define DOC_CLOCKTICKBUSYLOOP "tick_busy_loop(framerate=0) -> milliseconds\nupdate the clock"
+@@ -34,6 +34,10 @@ pause the program for an amount of time
+ pygame.time.set_timer
+  set_timer(eventid, milliseconds) -> None
+  set_timer(eventid, milliseconds, once) -> None
++ set_timer(eventid, milliseconds, once, repeat) -> None
++ set_timer(event, milliseconds) -> None
++ set_timer(event, milliseconds, once) -> None
++ set_timer(event, milliseconds, once, repeat) -> None
+ repeatedly create an event on the event queue
+ 
+ pygame.time.Clock
