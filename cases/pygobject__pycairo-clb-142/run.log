@@ -1,0 +1,28 @@
+Instance: pygobject__pycairo-clb-142
+Log: Test Log
+
+============================= test session starts ==============================
+platform linux -- Python 3.6.15, pytest-3.0.7, py-1.4.34, pluggy-0.4.0 -- /usr/local/bin/python
+cachedir: .cache
+rootdir: /testbed, inifile:
+collecting ... collected 52 items
+
+tests/test_surface.py::test_surface_get_content PASSED
+tests/test_surface.py::test_surface_get_format PASSED
+tests/test_surface.py::test_image_surface_png_obj_roundtrip PASSED
+tests/test_surface.py::test_image_surface_get_data_refcount FAILED
+
+=================================== FAILURES ===================================
+_____________________ test_image_surface_get_data_refcount _____________________
+
+    def test_image_surface_get_data_refcount():
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 10, 10)
+        assert sys.getrefcount(surface) == 2
+        d = surface.get_data()
+>       assert sys.getrefcount(surface) == 3
+E       assert 2 == 3
+E        +  where 2 = <built-in function getrefcount>(<cairo.ImageSurface object at 0x7c19480a3190>)
+E        +    where <built-in function getrefcount> = sys.getrefcount
+
+tests/test_surface.py:18: AssertionError
+====================== 1 failed, 3 passed in 0.05 seconds ======================
