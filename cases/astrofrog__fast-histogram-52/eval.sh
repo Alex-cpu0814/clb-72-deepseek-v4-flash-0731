@@ -3,7 +3,7 @@ set -uxo pipefail
 cd /testbed
 git config --global --add safe.directory /testbed
 git status
-git show
+git show --no-patch --oneline HEAD
 git -c core.fileMode=false diff 085efdad6570e25440beab781ef70e1f81605c12
 git checkout 085efdad6570e25440beab781ef70e1f81605c12 -- fast_histogram/tests/test_histogram.py
 git apply -v - <<'CLB_TEST_PATCH'
