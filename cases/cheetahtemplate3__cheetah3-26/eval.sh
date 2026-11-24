@@ -1,16 +1,12 @@
 #!/bin/bash
-set -uo pipefail
-ulimit -c 0
-
-fail() {
-    printf '%s\n' '>>>>> Tests Errored' "$1" >&2
-    exit 2
-}
-
-cd /testbed || fail 'Cannot enter /testbed'
-[[ "$(git rev-parse HEAD)" == "c86628cad04edc5167f9a9c8999abc62c6558e7b" ]] || fail 'Unexpected Base commit'
-git checkout c86628cad04edc5167f9a9c8999abc62c6558e7b -- Cheetah/Tests/SyntaxAndOutput.py || fail 'Test file restoration failed'
-git apply --whitespace=nowarn - <<'CLB_TEST_PATCH' || fail 'Test patch application failed'
+set -uxo pipefail
+cd /testbed
+git config --global --add safe.directory /testbed
+git status
+git show --no-patch --oneline HEAD
+git -c core.fileMode=false diff c86628cad04edc5167f9a9c8999abc62c6558e7b
+git checkout c86628cad04edc5167f9a9c8999abc62c6558e7b -- Cheetah/Tests/SyntaxAndOutput.py
+git apply -v - <<'EOF_114329324912'
 diff --git a/Cheetah/Tests/SyntaxAndOutput.py b/Cheetah/Tests/SyntaxAndOutput.py
 index c6fa39d..a2ee63c 100755
 --- a/Cheetah/Tests/SyntaxAndOutput.py
@@ -28,18 +24,8 @@ index c6fa39d..a2ee63c 100755
  
  class MiscComplexSyntax(OutputTest):
      def test1(self):
-CLB_TEST_PATCH
-
-python setup.py build_ext --inplace || fail 'Project build failed'
-set +x
-printf '%s\n' '>>>>> Start Test Output'
-python -m pytest -vv --color=no -o console_output_style=classic -c /dev/null --rootdir=/testbed -p no:cacheprovider \
-    Cheetah/Tests/SyntaxAndOutput.py::GetVar::test1 \
-    Cheetah/Tests/SyntaxAndOutput.py::GetVar::test2 \
-    Cheetah/Tests/SyntaxAndOutput.py::GetVar::test6
-test_status=$?
-# SWE-bench records the status of the command immediately before the end marker.
-(exit "$test_status")
-printf '%s\n' '>>>>> End Test Output'
-git checkout c86628cad04edc5167f9a9c8999abc62c6558e7b -- Cheetah/Tests/SyntaxAndOutput.py || fail 'Test file restoration failed'
-exit "$test_status"
+EOF_114329324912
+: '>>>>> Start Test Output'
+(./buildandrun --clean -- Cheetah/Tests/SyntaxAndOutput.py -v GetVar.test1 GetVar.test2 GetVar.test6 2>&1) | cat
+: '>>>>> End Test Output'
+git checkout c86628cad04edc5167f9a9c8999abc62c6558e7b -- Cheetah/Tests/SyntaxAndOutput.py

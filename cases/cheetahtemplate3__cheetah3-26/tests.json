@@ -1,0 +1,9 @@
+{
+  "FAIL_TO_PASS": [
+    "$getVar('$') raises ValueError"
+  ],
+  "PASS_TO_PASS": [
+    "$getVar('$anInt')",
+    "$getVar('anInt')"
+  ]
+}
