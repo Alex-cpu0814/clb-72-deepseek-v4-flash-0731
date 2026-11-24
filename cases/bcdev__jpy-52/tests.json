@@ -1,6 +1,10 @@
 {
   "FAIL_TO_PASS": [
-    "jpy_upstream_build_and_test"
+    "src/test/python/jpy_array_test.py::TestJavaArrays::test_array_item_del"
   ],
-  "PASS_TO_PASS": []
+  "PASS_TO_PASS": [
+    "src/test/python/jpy_array_test.py::TestJavaArrays::test_array_int",
+    "src/test/python/jpy_array_test.py::TestJavaArrays::test_array_object",
+    "src/test/python/jpy_array_test.py::TestJavaArrays::test_buffer_int"
+  ]
 }

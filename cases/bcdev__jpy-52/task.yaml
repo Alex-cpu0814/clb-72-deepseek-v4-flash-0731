@@ -8,8 +8,8 @@
     "Alex-cpu0814/SWE-bench_CLB"
   ],
   "cohort": "python50",
-  "image": "yutu0814/sweb.eval.x86_64.bcdev_1776_jpy-clb-176:latest",
-  "log_parser": "parse_log_jq",
+  "image": "yutu0814/sweb.eval.x86_64.bcdev_1776_jpy-52:latest",
+  "log_parser": "parse_log_pytest_v2",
   "eval_type": "pass_and_fail",
   "previous_instance_id": "bcdev__jpy-clb-176",
   "upstream_url": "https://github.com/bcdev/jpy/issues/52",
