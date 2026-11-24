@@ -1,0 +1,18 @@
+{
+  "instance_id": "bcdev__jpy-52",
+  "repo": "bcdev/jpy",
+  "base_commit": "20cdbb714300bdb2502d9ac44740c85c64cce691",
+  "version": "clb-v1-pilot",
+  "split": "test",
+  "datasets": [
+    "Alex-cpu0814/SWE-bench_CLB"
+  ],
+  "cohort": "python50",
+  "image": "yutu0814/sweb.eval.x86_64.bcdev_1776_jpy-clb-176:latest",
+  "log_parser": "parse_log_jq",
+  "eval_type": "pass_and_fail",
+  "previous_instance_id": "bcdev__jpy-clb-176",
+  "upstream_url": "https://github.com/bcdev/jpy/issues/52",
+  "issue_number": 52,
+  "rebuilt_image": "yutu0814/sweb.eval.x86_64.bcdev_1776_jpy-52:latest"
+}
