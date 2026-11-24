@@ -1,0 +1,18 @@
+{
+  "instance_id": "ghaering__pysqlite-33",
+  "repo": "ghaering/pysqlite",
+  "base_commit": "d7c44a6b62ccf27ae2a006d32dc25cd49ca45320",
+  "version": "clb-v1-pilot",
+  "split": "test",
+  "datasets": [
+    "Alex-cpu0814/SWE-bench_CLB"
+  ],
+  "cohort": "python50",
+  "image": "yutu0814/sweb.eval.x86_64.ghaering_1776_pysqlite-clb-156:latest",
+  "log_parser": "parse_log_django",
+  "eval_type": "pass_and_fail",
+  "previous_instance_id": "ghaering__pysqlite-clb-156",
+  "upstream_url": "https://github.com/ghaering/pysqlite/issues/33",
+  "issue_number": 33,
+  "rebuilt_image": "yutu0814/sweb.eval.x86_64.ghaering_1776_pysqlite-33:latest"
+}

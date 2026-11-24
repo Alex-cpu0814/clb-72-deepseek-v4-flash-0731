@@ -1,0 +1,11 @@
+{
+  "FAIL_TO_PASS": [
+    "CheckGetLimit (pysqlite2.test.hooks.LimitTests)",
+    "CheckSetLimit (pysqlite2.test.hooks.LimitTests)"
+  ],
+  "PASS_TO_PASS": [
+    "CheckCreateCollationNotCallable (pysqlite2.test.hooks.CollationTests)",
+    "CheckProgressHandlerUsed (pysqlite2.test.hooks.ProgressTests)",
+    "CheckCancelOperation (pysqlite2.test.hooks.ProgressTests)"
+  ]
+}
