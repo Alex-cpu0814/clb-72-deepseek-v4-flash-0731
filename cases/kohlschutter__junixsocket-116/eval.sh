@@ -1,17 +1,13 @@
 #!/bin/bash
-set -uo pipefail
-ulimit -c 0
-
-fail() {
-    printf '%s\n' '>>>>> Tests Errored' "$1" >&2
-    exit 2
-}
-
-cd /testbed || fail 'Cannot enter /testbed'
-[[ "$(git rev-parse HEAD)" == "7578a2470871e12dd72716925f60d857ad7eb409" ]] || fail 'Unexpected Base commit'
-git checkout 7578a2470871e12dd72716925f60d857ad7eb409 -- junixsocket-common/src/test/java/org/newsclub/net/unix/AFUNIXSocketAddressTest.java junixsocket-common/src/test/java/org/newsclub/net/unix/SelftestProvider.java || fail 'Test file restoration failed'
-rm -f -- junixsocket-common/src/test/java/org/newsclub/net/unix/domain/AbstractNamespaceTest.java || fail 'Cannot remove added test files'
-git apply --whitespace=nowarn - <<'CLB_TEST_PATCH' || fail 'Test patch application failed'
+set -uxo pipefail
+cd /testbed
+git config --global --add safe.directory /testbed
+git status
+git show --no-patch --oneline HEAD
+git -c core.fileMode=false diff 7578a2470871e12dd72716925f60d857ad7eb409
+git checkout 7578a2470871e12dd72716925f60d857ad7eb409 -- junixsocket-common/src/test/java/org/newsclub/net/unix/AFUNIXSocketAddressTest.java junixsocket-common/src/test/java/org/newsclub/net/unix/SelftestProvider.java
+rm -f -- junixsocket-common/src/test/java/org/newsclub/net/unix/domain/AbstractNamespaceTest.java
+git apply -v - <<'EOF_114329324912'
 diff --git a/junixsocket-common/src/test/java/org/newsclub/net/unix/AFUNIXSocketAddressTest.java b/junixsocket-common/src/test/java/org/newsclub/net/unix/AFUNIXSocketAddressTest.java
 index d17b2013..828125a7 100644
 --- a/junixsocket-common/src/test/java/org/newsclub/net/unix/AFUNIXSocketAddressTest.java
@@ -139,65 +135,14 @@ index 00000000..d754a62d
 +    testBind(AFUNIXSocketAddress.of(new byte[] {0, 0, 0}), null);
 +  }
 +}
-CLB_TEST_PATCH
-
-mkdir -p /benchmark || fail 'Cannot create evaluation fixture directory'
-cat > /benchmark/surefire_test_nodes.py <<'EOF_4c395be7a6ea' || fail 'Cannot write /benchmark/surefire_test_nodes.py'
-#!/usr/bin/env python3
-"""Emit Maven Surefire XML results in the evaluator's stable line format."""
-
-import pathlib
-import sys
-import xml.etree.ElementTree as ET
-
-
-def main():
-    report_dir = pathlib.Path(sys.argv[1])
-    found = 0
-    for path in sorted(report_dir.glob("TEST-*.xml")):
-        root = ET.parse(path).getroot()
-        for case in root.iter("testcase"):
-            class_name = case.get("classname", "unknown")
-            method = case.get("name", "unknown")
-            if case.find("failure") is not None:
-                status = "FAILED"
-            elif case.find("error") is not None:
-                status = "ERROR"
-            elif case.find("skipped") is not None:
-                status = "SKIPPED"
-            else:
-                status = "PASSED"
-            print(f"{class_name}.{method} {status}")
-            found += 1
-    if found == 0:
-        print("No Surefire test results found", file=sys.stderr)
-        return 2
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-EOF_4c395be7a6ea
+EOF_114329324912
 mvn -B -o -Puse-snapshots,release-native \
         -pl junixsocket-native-custom -am clean install \
         -DskipTests \
         -Djunixsocket.custom.arch=amd64-Linux-clang-jni \
-        -Djunixsocket.custom.shaded=default || fail 'Project build failed'
-set +x
-printf '%s\n' '>>>>> Start Test Output'
-(
-    rm -rf /testbed/junixsocket-common/target/surefire-reports || exit 2
-    mvn -B -o -Dstyle.color=never -Puse-snapshots -pl junixsocket-common -am test \
-        '-Dtest=AbstractNamespaceTest,AFUNIXSocketAddressTest#testAbstractNamespace' \
-        -Dsurefire.failIfNoSpecifiedTests=false
-    maven_status=$?
-    python3 /benchmark/surefire_test_nodes.py /testbed/junixsocket-common/target/surefire-reports || exit 2
-    exit "$maven_status"
-)
-test_status=$?
-# SWE-bench records the status of the command immediately before the end marker.
-(exit "$test_status")
-printf '%s\n' '>>>>> End Test Output'
-git checkout 7578a2470871e12dd72716925f60d857ad7eb409 -- junixsocket-common/src/test/java/org/newsclub/net/unix/AFUNIXSocketAddressTest.java junixsocket-common/src/test/java/org/newsclub/net/unix/SelftestProvider.java || fail 'Test file restoration failed'
-rm -f -- junixsocket-common/src/test/java/org/newsclub/net/unix/domain/AbstractNamespaceTest.java || fail 'Cannot remove added test files'
-exit "$test_status"
+        -Djunixsocket.custom.shaded=default || exit 2
+: '>>>>> Start Test Output'
+(set -x; mvn -B -o -Dstyle.color=never -Puse-snapshots -pl junixsocket-common -am test -Dtest=org.newsclub.net.unix.AFUNIXSocketAddressTest#testAbstractNamespace && mvn -B -o -Dstyle.color=never -Puse-snapshots -pl junixsocket-common -am test -Dtest=org.newsclub.net.unix.domain.AbstractNamespaceTest#testBind && mvn -B -o -Dstyle.color=never -Puse-snapshots -pl junixsocket-common -am test -Dtest=org.newsclub.net.unix.domain.AbstractNamespaceTest#testBindTrailingZeroes) | cat
+: '>>>>> End Test Output'
+git checkout 7578a2470871e12dd72716925f60d857ad7eb409 -- junixsocket-common/src/test/java/org/newsclub/net/unix/AFUNIXSocketAddressTest.java junixsocket-common/src/test/java/org/newsclub/net/unix/SelftestProvider.java
+rm -f -- junixsocket-common/src/test/java/org/newsclub/net/unix/domain/AbstractNamespaceTest.java
