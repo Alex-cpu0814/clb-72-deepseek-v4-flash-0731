@@ -6,7 +6,7 @@ git status
 git show --no-patch --oneline HEAD
 git -c core.fileMode=false diff 76b6f57a27f31cdefc23444f91611a00c9b4332d
 git checkout 76b6f57a27f31cdefc23444f91611a00c9b4332d -- fast_histogram/tests/test_histogram.py
-git apply -v - <<'CLB_TEST_PATCH'
+git apply -v - <<'EOF_114329324912'
 diff --git a/fast_histogram/tests/test_histogram.py b/fast_histogram/tests/test_histogram.py
 index 2215f02..0771e6a 100644
 --- a/fast_histogram/tests/test_histogram.py
@@ -33,7 +33,7 @@ index 2215f02..0771e6a 100644
 +                            bins=(10, 10), range=[(0, 1), (0, 1)])
 +
 +    np.testing.assert_equal(result_1d, result_3d)
-CLB_TEST_PATCH
+EOF_114329324912
 python setup.py build_ext --inplace --force || exit 2
 : '>>>>> Start Test Output'
 (python -m pytest -vv --color=no -o console_output_style=classic -p no:warnings --hypothesis-show-statistics \
