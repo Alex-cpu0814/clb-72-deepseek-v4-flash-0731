@@ -8,6 +8,7 @@ RUN printf '%s\n' \
     'deb [check-valid-until=no] https://archive.debian.org/debian buster main' \
     'deb [check-valid-until=no] https://archive.debian.org/debian-security buster/updates main' \
     > /etc/apt/sources.list
+
 RUN apt update && apt install -y \
     wget \
     git \
@@ -29,33 +30,16 @@ ARG INSTANCE_ID=astrofrog__fast-histogram-21
 RUN <<'EOF_b1406053c7c0'
 #!/bin/bash
 set -euo pipefail
-
 git --version
 git clone -o origin --single-branch "$REPO_URL" /testbed
-
 cd /testbed
 git reset --hard "$BASE_COMMIT"
 # Git 2.20.1 can fail during gc if origin/HEAD is left dangling.
-if git symbolic-ref --quiet refs/remotes/origin/HEAD >/dev/null; then
-    git symbolic-ref --delete refs/remotes/origin/HEAD
-fi
+if git symbolic-ref --quiet refs/remotes/origin/HEAD >/dev/null; then git symbolic-ref --delete refs/remotes/origin/HEAD; fi
 git remote remove origin
-
 base_epoch=$(git show -s --format=%ct "$BASE_COMMIT")
-for tag in $(git tag -l); do
-    if tag_epoch=$(git log -1 --format=%ct "refs/tags/$tag" -- 2>/dev/null) \
-        && [[ -n "$tag_epoch" && "$tag_epoch" -gt "$base_epoch" ]]; then
-        git tag -d "$tag"
-    fi
-done
-
-current_branch=$(git symbolic-ref HEAD)
-for branch in $(git for-each-ref --format='%(refname)' refs/heads); do
-    if [[ "$branch" != "$current_branch" ]]; then
-        git branch -D "${branch#refs/heads/}"
-    fi
-done
-
+for tag in $(git tag -l); do if tag_epoch=$(git log -1 --format=%ct "refs/tags/$tag" -- 2>/dev/null) && [[ -n "$tag_epoch" && "$tag_epoch" -gt "$base_epoch" ]]; then git tag -d "$tag"; fi; done
+git branch | grep -v '^\*' | xargs -r git branch -D || true
 git reflog expire --expire=now --all
 git gc --prune=now --aggressive
 newer_commits=$(git rev-list --count --all --since="@$((base_epoch + 1))")
@@ -67,7 +51,6 @@ EOF_b1406053c7c0
 RUN <<'CLB_PROJECT'
 #!/bin/bash
 set -euo pipefail
-
 cd /testbed
 python setup.py build_ext --inplace --force
 python -c 'import fast_histogram as pkg, fast_histogram._histogram_core as native, numpy; print(pkg.__version__, numpy.__version__, native.__file__); assert pkg.__version__ == "0.5.dev0"; assert numpy.__version__ == "1.14.5"; assert native.__file__.startswith("/testbed/fast_histogram/_histogram_core.")'
