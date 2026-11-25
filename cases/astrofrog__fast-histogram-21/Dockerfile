@@ -1,6 +1,5 @@
 FROM public.ecr.aws/docker/library/python:3.6.15-buster@sha256:56ba32a1c5aa030914cc957f1c9fe58d9d462bdf89a1e5f2b4dbdda68085327e
 
-# 1. Install common system tools, then prepare the task's language environment.
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
@@ -23,7 +22,6 @@ RUN python -m pip install --no-cache-dir \
     attrs==19.3.0 py==1.5.4 pluggy==0.6.0 atomicwrites==1.1.5 \
     more-itertools==4.2.0 six==1.11.0 sortedcontainers==2.1.0
 
-# 2. Clone the repository, reset to the task base, and prune later history.
 ARG REPO_URL=https://github.com/astrofrog/fast-histogram.git
 ARG BASE_COMMIT=76b6f57a27f31cdefc23444f91611a00c9b4332d
 ARG INSTANCE_ID=astrofrog__fast-histogram-21
@@ -66,7 +64,6 @@ git config core.autocrlf false
 test "$(git rev-parse HEAD)" = "$BASE_COMMIT"
 EOF_b1406053c7c0
 
-# 3. Install repository-specific dependencies or precompile the base source.
 RUN <<'CLB_PROJECT'
 #!/bin/bash
 set -euo pipefail
@@ -77,7 +74,6 @@ python -c 'import fast_histogram as pkg, fast_histogram._histogram_core as nativ
 git checkout HEAD -- .
 printf '%s\n' '/build/' '**/__pycache__/' '*.pyc' '*.so' '/fast_histogram.egg-info/' >> .git/info/exclude
 
-# 4. Check the source state after setup and cleanup.
 test "$(git rev-parse HEAD)" = "$BASE_COMMIT"
 git diff --exit-code "$BASE_COMMIT" --
 worktree_status=$(git status --porcelain)

@@ -1,6 +1,5 @@
 FROM @BASE_IMAGE@
 
-# 1. Install common system tools, then prepare the task's language environment.
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
@@ -11,7 +10,6 @@ RUN apt update && apt install -y \
 
 @ENVIRONMENT_SETUP@
 
-# 2. Clone the repository, reset to the task base, and prune later history.
 ARG REPO_URL=@REPO_URL@
 ARG BASE_COMMIT=@BASE@
 ARG INSTANCE_ID=@INSTANCE@
@@ -51,7 +49,6 @@ git config core.autocrlf false
 test "$(git rev-parse HEAD)" = "$BASE_COMMIT"
 EOF_b1406053c7c0
 
-# 3. Install repository-specific dependencies or precompile the base source.
 RUN <<'CLB_PROJECT'
 #!/bin/bash
 set -euo pipefail
@@ -59,7 +56,6 @@ set -euo pipefail
 cd /testbed
 @PROJECT_SETUP@
 
-# 4. Check the source state after setup and cleanup.
 test "$(git rev-parse HEAD)" = "$BASE_COMMIT"
 git diff --exit-code "$BASE_COMMIT" --
 worktree_status=$(git status --porcelain)
