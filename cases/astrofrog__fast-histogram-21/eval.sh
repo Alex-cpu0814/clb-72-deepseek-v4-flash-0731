@@ -36,7 +36,7 @@ index 2215f02..0771e6a 100644
 EOF_114329324912
 python setup.py build_ext --inplace --force || exit 2
 : '>>>>> Start Test Output'
-(python -m pytest -vv --color=no -o console_output_style=classic -p no:warnings --hypothesis-show-statistics \
+(pytest -vv --color=no -o console_output_style=classic -p no:warnings --hypothesis-show-statistics \
     fast_histogram/tests/test_histogram.py::test_1d_compare_with_numpy \
     fast_histogram/tests/test_histogram.py::test_2d_compare_with_numpy \
     fast_histogram/tests/test_histogram.py::test_nd_arrays) | cat
