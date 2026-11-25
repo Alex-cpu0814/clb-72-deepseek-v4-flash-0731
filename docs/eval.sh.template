@@ -5,9 +5,8 @@ git config --global --add safe.directory /testbed
 git status
 git show --no-patch --oneline HEAD
 git -c core.fileMode=false diff @BASE_COMMIT@
-git checkout @BASE_COMMIT@ -- @TRACKED_TEST_FILES@
-rm -f -- @ADDED_TEST_FILES@
-git apply -v - <<'EOF_114329324912'
+git checkout @BASE_COMMIT@ -- @TRACKED_TEST_FILES@ || exit 2
+git apply -v - <<'EOF_114329324912' || exit 2
 @TEST_PATCH@
 EOF_114329324912
 @BUILD_COMMAND@ || exit 2
@@ -19,9 +18,10 @@ rm -f -- @ADDED_TEST_FILES@
 
 # 使用说明：复制为任务的 eval.sh，填写占位符后可删除这些注释。
 # @BASE_COMMIT@：填写 task.yaml 里的完整 base_commit。
-# @TRACKED_TEST_FILES@：列出 Base 已跟踪且需要恢复的测试文件路径。
-# @ADDED_TEST_FILES@：只列出 test.patch 新增的测试文件路径，逐个列出，不用通配符。
-#   对应文件列表为空时，删除开头和结尾各自对应的 checkout 或 rm 行。
+# @TRACKED_TEST_FILES@：只填 Base 提交中已存在、需要恢复的测试文件。
+#   如果没有这类文件，删除开头和结尾的 checkout 行。
+# @ADDED_TEST_FILES@：只填 test.patch 新增的文件，逐个列出，不用通配符。
+#   这些文件在测试结束后清理。如果没有新增文件，删除结尾的 rm 行。
 # @TEST_PATCH@：原样粘贴 test.patch，保留补丁的前导空格和上下两行分隔符。
 # @BUILD_COMMAND@：填写应用补丁后应执行的构建命令。测试入口本身负责构建时，
 #   删除整行。构建所需的工具和依赖由 Dockerfile 准备。
