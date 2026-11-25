@@ -9,7 +9,7 @@ git checkout @BASE_COMMIT@ -- @TRACKED_TEST_FILES@ || exit 2
 git apply -v - <<'EOF_114329324912' || exit 2
 @TEST_PATCH@
 EOF_114329324912
-@BUILD_COMMAND@ || exit 2
+@OPTIONAL_PRE_TEST_BUILD@
 : '>>>>> Start Test Output'
 (@TEST_COMMAND@) | cat
 : '>>>>> End Test Output'
@@ -23,9 +23,12 @@ rm -f -- @ADDED_TEST_FILES@
 # @ADDED_TEST_FILES@：只填 test.patch 新增的文件，逐个列出，不用通配符。
 #   这些文件在测试结束后清理。如果没有新增文件，删除结尾的 rm 行。
 # @TEST_PATCH@：原样粘贴 test.patch，保留补丁的前导空格和上下两行分隔符。
-# @BUILD_COMMAND@：填写应用补丁后应执行的构建命令。测试入口本身负责构建时，
-#   删除整行。构建所需的工具和依赖由 Dockerfile 准备。
-# @TEST_COMMAND@：填写运行 tests.json 中指定用例的命令。外层括号和管道已提供。
+# @OPTIONAL_PRE_TEST_BUILD@：仅在测试入口要求先构建当前源码时填写，例如
+#   python setup.py build_ext --inplace --force || exit 2
+#   填写完整构建步骤并在失败时退出。如果测试入口会构建或任务无需构建，删除占位行。
+#   构建和测试所需的工具与依赖由 Dockerfile 准备。
+# @TEST_COMMAND@：填写运行 tests.json 中指定用例的命令。该命令也可以同时构建和测试，
+#   例如 Maven 的 mvnd test。外层括号和管道已提供。
 #   Maven 使用 parse_log_maven 时，每条 Maven 命令只指定一个 -Dtest=类名#方法名，
 #   tests.json 使用相同标识，并保留脚本开头的 -x。允许遇到首个失败就停止时可用 &&。
 #   若失败后仍需运行其他用例，要保留各次执行的失败状态，不能只返回最后一个命令的状态。
