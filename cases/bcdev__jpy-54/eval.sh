@@ -27,7 +27,7 @@ index 5df06e9..84d5569 100644
 EOF_114329324912
 (python2.7 setup.py clean build_ext --inplace --force && mvn -o -B clean test-compile) || exit 2
 : '>>>>> Start Test Output'
-(python2.7 -m pytest --forked -vv -rA --color=no -o console_output_style=classic -p no:cacheprovider \
+(python2.7 /opt/clb/run_unittest.py \
     src/test/python/jpy_overload_test.py::TestMethodOverloads::test_2ArgOverloadsWithVaryingTypes \
     src/test/python/jpy_overload_test.py::TestMethodOverloads::test_nArgOverloads \
     src/test/python/jpy_overload_test.py::TestMethodOverloads::test_nArgOverloadsAreFoundInBaseClass \
