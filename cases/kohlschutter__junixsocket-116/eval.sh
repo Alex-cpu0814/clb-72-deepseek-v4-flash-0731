@@ -142,7 +142,16 @@ mvn -B -o -Puse-snapshots,release-native \
         -Djunixsocket.custom.arch=amd64-Linux-clang-jni \
         -Djunixsocket.custom.shaded=default || exit 2
 : '>>>>> Start Test Output'
-(set -x; mvn -B -o -Dstyle.color=never -Puse-snapshots -pl junixsocket-common -am test -Dtest=org.newsclub.net.unix.AFUNIXSocketAddressTest#testAbstractNamespace && mvn -B -o -Dstyle.color=never -Puse-snapshots -pl junixsocket-common -am test -Dtest=org.newsclub.net.unix.domain.AbstractNamespaceTest#testBind && mvn -B -o -Dstyle.color=never -Puse-snapshots -pl junixsocket-common -am test -Dtest=org.newsclub.net.unix.domain.AbstractNamespaceTest#testBindTrailingZeroes) | cat
+(exec 2>&1
+test_status=0
+for test_case in \
+    org.newsclub.net.unix.AFUNIXSocketAddressTest#testAbstractNamespace \
+    org.newsclub.net.unix.domain.AbstractNamespaceTest#testBind \
+    org.newsclub.net.unix.domain.AbstractNamespaceTest#testBindTrailingZeroes; do
+    mvn -B -o -Dstyle.color=never -Puse-snapshots -pl junixsocket-common -am test \
+        -Dtest="$test_case" || test_status=$?
+done
+exit "$test_status") | cat
 : '>>>>> End Test Output'
 git checkout 7578a2470871e12dd72716925f60d857ad7eb409 -- junixsocket-common/src/test/java/org/newsclub/net/unix/AFUNIXSocketAddressTest.java junixsocket-common/src/test/java/org/newsclub/net/unix/SelftestProvider.java
 rm -f -- junixsocket-common/src/test/java/org/newsclub/net/unix/domain/AbstractNamespaceTest.java
