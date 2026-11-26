@@ -47,7 +47,7 @@ index f4c86a6..198f49b 100644
 EOF_114329324912
 python setup.py build_ext --inplace --force || exit 2
 : '>>>>> Start Test Output'
-(python -m pytest -vv --color=no -o console_output_style=classic \
+(pytest -vv --color=no -o console_output_style=classic \
     fast_histogram/tests/test_histogram.py::test_nd_arrays \
     fast_histogram/tests/test_histogram.py::test_list \
     fast_histogram/tests/test_histogram.py::test_non_contiguous \
