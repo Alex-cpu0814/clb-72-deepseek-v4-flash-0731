@@ -32,20 +32,13 @@ git gc --prune=now --aggressive
 newer_commits=$(git rev-list --count --all --since="@$((base_epoch + 1))")
 test "$newer_commits" -eq 0
 git config core.autocrlf false
-test "$(git rev-parse HEAD)" = "$BASE_COMMIT"
-EOF_b1406053c7c0
-
-RUN <<'CLB_PROJECT'
-#!/bin/bash
-set -euo pipefail
-cd /testbed
 @PROJECT_SETUP@
 
 test "$(git rev-parse HEAD)" = "$BASE_COMMIT"
 git diff --exit-code "$BASE_COMMIT" --
 worktree_status=$(git status --porcelain)
 test -z "$worktree_status"
-CLB_PROJECT
+EOF_b1406053c7c0
 
 WORKDIR /testbed
 CMD ["/bin/bash"]

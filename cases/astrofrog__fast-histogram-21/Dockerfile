@@ -45,13 +45,6 @@ git gc --prune=now --aggressive
 newer_commits=$(git rev-list --count --all --since="@$((base_epoch + 1))")
 test "$newer_commits" -eq 0
 git config core.autocrlf false
-test "$(git rev-parse HEAD)" = "$BASE_COMMIT"
-EOF_b1406053c7c0
-
-RUN <<'CLB_PROJECT'
-#!/bin/bash
-set -euo pipefail
-cd /testbed
 python setup.py build_ext --inplace --force
 python -c 'import fast_histogram as pkg, fast_histogram._histogram_core as native, numpy; print(pkg.__version__, numpy.__version__, native.__file__); assert pkg.__version__ == "0.5.dev0"; assert numpy.__version__ == "1.14.5"; assert native.__file__.startswith("/testbed/fast_histogram/_histogram_core.")'
 git checkout HEAD -- .
@@ -61,7 +54,7 @@ test "$(git rev-parse HEAD)" = "$BASE_COMMIT"
 git diff --exit-code "$BASE_COMMIT" --
 worktree_status=$(git status --porcelain)
 test -z "$worktree_status"
-CLB_PROJECT
+EOF_b1406053c7c0
 
 WORKDIR /testbed
 CMD ["/bin/bash"]
