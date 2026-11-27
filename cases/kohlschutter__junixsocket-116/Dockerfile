@@ -53,6 +53,3 @@ EOF_b1406053c7c0
 
 WORKDIR /testbed
 CMD ["/bin/bash"]
-LABEL benchmark.instance_id="${INSTANCE_ID}" \
-      benchmark.base_commit="${BASE_COMMIT}" \
-      org.opencontainers.image.source="https://github.com/kohlschutter/junixsocket"
