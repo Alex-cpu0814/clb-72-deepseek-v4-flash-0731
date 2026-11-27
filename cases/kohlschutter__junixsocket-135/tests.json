@@ -1,0 +1,8 @@
+{
+  "FAIL_TO_PASS": [
+    "org.eclipse.jetty.unixdomain.server.UnixDomainTest#testLargeBody"
+  ],
+  "PASS_TO_PASS": [
+    "org.eclipse.jetty.unixdomain.server.UnixDomainTest#testHTTPOverUnixDomain"
+  ]
+}

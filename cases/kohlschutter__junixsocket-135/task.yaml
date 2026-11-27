@@ -1,0 +1,18 @@
+{
+  "instance_id": "kohlschutter__junixsocket-135",
+  "repo": "kohlschutter/junixsocket",
+  "base_commit": "2a159927761424440f7dbd7674992e4b5273a459",
+  "version": "clb-v1-pilot",
+  "split": "test",
+  "datasets": [
+    "Alex-cpu0814/SWE-bench_CLB"
+  ],
+  "cohort": "java_upstream11",
+  "image": "yutu0814/sweb.eval.x86_64.kohlschutter_1776_junixsocket-clb-175:latest",
+  "log_parser": "parse_log_maven",
+  "eval_type": "pass_and_fail",
+  "previous_instance_id": "kohlschutter__junixsocket-clb-175",
+  "upstream_url": "https://github.com/kohlschutter/junixsocket/issues/135",
+  "issue_number": 135,
+  "rebuilt_image": "yutu0814/sweb.eval.x86_64.kohlschutter_1776_junixsocket-135:latest"
+}
