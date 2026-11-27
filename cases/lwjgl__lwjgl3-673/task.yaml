@@ -1,0 +1,18 @@
+{
+  "instance_id": "lwjgl__lwjgl3-673",
+  "repo": "LWJGL/lwjgl3",
+  "base_commit": "307ebed6ef6ba420b2165ddb2ec21dd9a37479df",
+  "version": "clb-v1-pilot",
+  "split": "test",
+  "datasets": [
+    "Alex-cpu0814/SWE-bench_CLB"
+  ],
+  "cohort": "java_author11",
+  "image": "yutu0814/sweb.eval.x86_64.lwjgl_1776_lwjgl3-clb-056:latest",
+  "log_parser": "parse_log_pytest_v2",
+  "eval_type": "pass_and_fail",
+  "previous_instance_id": "lwjgl__lwjgl3-clb-056",
+  "upstream_url": "https://github.com/LWJGL/lwjgl3/issues/673",
+  "issue_number": 673,
+  "rebuilt_image": "yutu0814/sweb.eval.x86_64.lwjgl_1776_lwjgl3-673:latest"
+}

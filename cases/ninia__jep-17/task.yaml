@@ -1,0 +1,18 @@
+{
+  "instance_id": "ninia__jep-17",
+  "repo": "ninia/jep",
+  "base_commit": "b1ab138dd6d492c7547e24d0b117aeafb112613d",
+  "version": "clb-v1-pilot",
+  "split": "test",
+  "datasets": [
+    "Alex-cpu0814/SWE-bench_CLB"
+  ],
+  "cohort": "java_author11",
+  "image": "yutu0814/sweb.eval.x86_64.ninia_1776_jep-clb-099:latest",
+  "log_parser": "parse_log_pytest_v2",
+  "eval_type": "pass_and_fail",
+  "previous_instance_id": "ninia__jep-clb-099",
+  "upstream_url": "https://github.com/ninia/jep/issues/17",
+  "issue_number": 17,
+  "rebuilt_image": "yutu0814/sweb.eval.x86_64.ninia_1776_jep-17:latest"
+}
