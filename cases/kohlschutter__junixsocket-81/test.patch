@@ -1,0 +1,123 @@
+diff --git a/junixsocket-common/src/test/java/org/newsclub/net/unix/Issue81GlibcProbe.java b/junixsocket-common/src/test/java/org/newsclub/net/unix/Issue81GlibcProbe.java
+new file mode 100644
+index 0000000..2faa0aa
+--- /dev/null
++++ b/junixsocket-common/src/test/java/org/newsclub/net/unix/Issue81GlibcProbe.java
+@@ -0,0 +1,47 @@
++package org.newsclub.net.unix;
++
++import java.io.DataInputStream;
++import java.io.DataOutputStream;
++import java.io.File;
++
++/** Calls the real library loader and native bind; no simulated native failures. */
++public final class Issue81GlibcProbe {
++  public static void main(String[] args) throws Exception {
++    System.out.println("JAVA_STARTED=" + System.getProperty("java.version"));
++    if (!AFUNIXSocket.isSupported()) {
++      throw new AssertionError("AF_UNIX unavailable");
++    }
++    System.out.println("LOADER_COMPLETED=" + AFUNIXSocket.getLoadedLibrary());
++    for (int iteration = 0; iteration < 3; iteration++) {
++      File file = File.createTempFile("issue81-", ".sock");
++      if (!file.delete()) {
++        throw new AssertionError("Could not prepare socket pathname");
++      }
++      AFUNIXSocketAddress address = new AFUNIXSocketAddress(file);
++      System.out.println("BEFORE_BIND=" + iteration);
++      try (AFUNIXServerSocket server = AFUNIXServerSocket.bindOn(address)) {
++        System.out.println("AFTER_BIND=" + iteration);
++        server.setSoTimeout(3000);
++        try (AFUNIXSocket client = AFUNIXSocket.connectTo(address);
++             AFUNIXSocket accepted = server.accept()) {
++          client.setSoTimeout(3000);
++          accepted.setSoTimeout(3000);
++          int value = 0x1638100 + iteration;
++          new DataOutputStream(client.getOutputStream()).writeInt(value);
++          if (new DataInputStream(accepted.getInputStream()).readInt() != value) {
++            throw new AssertionError("Request corrupted");
++          }
++          new DataOutputStream(accepted.getOutputStream()).writeInt(~value);
++          if (new DataInputStream(client.getInputStream()).readInt() != ~value) {
++            throw new AssertionError("Response corrupted");
++          }
++        }
++      } finally {
++        if (file.exists() && !file.delete()) {
++          throw new AssertionError("Socket cleanup failed");
++        }
++      }
++      System.out.println("ROUNDTRIP_OK=" + iteration);
++    }
++  }
++}
+diff --git a/junixsocket-common/src/test/java/org/newsclub/net/unix/Issue81CompatibilityTest.java b/junixsocket-common/src/test/java/org/newsclub/net/unix/Issue81CompatibilityTest.java
+new file mode 100644
+index 0000000..11d0f95
+--- /dev/null
++++ b/junixsocket-common/src/test/java/org/newsclub/net/unix/Issue81CompatibilityTest.java
+@@ -0,0 +1,64 @@
++package org.newsclub.net.unix;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.nio.file.Paths;
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++import java.util.concurrent.TimeUnit;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.io.TempDir;
++
++class Issue81CompatibilityTest {
++  @TempDir
++  Path tempDir;
++
++  @Test
++  void testAutomaticFallbackOldGlibc() throws Exception {
++    runProbe(Arrays.asList("/opt/tools/qemu-x86_64-static", "-L", "/opt/legacy"));
++  }
++
++  @Test
++  void testModernGlibcRoundTrip() throws Exception {
++    runProbe(Collections.emptyList());
++  }
++
++  private void runProbe(List<String> launcher) throws Exception {
++    List<String> command = new ArrayList<>(launcher);
++    String java = Paths.get(System.getProperty("java.home"), "bin", "java").toString();
++    Collections.addAll(command, java, "-Xint", "-Xms16m", "-Xmx64m", "-XX:+UseSerialGC",
++        "-XX:ActiveProcessorCount=2", "-cp", System.getProperty("java.class.path"),
++        Issue81GlibcProbe.class.getName());
++
++    Path log = tempDir.resolve("probe.log");
++    Process child = new ProcessBuilder(command)
++        .redirectErrorStream(true)
++        .redirectOutput(log.toFile())
++        .start();
++    boolean finished;
++    try {
++      finished = child.waitFor(30, TimeUnit.SECONDS);
++    } finally {
++      if (child.isAlive()) {
++        child.destroyForcibly();
++      }
++    }
++
++    String output = new String(Files.readAllBytes(log), StandardCharsets.UTF_8);
++    assertTrue(finished, () -> "Probe JVM timed out:\n" + output);
++    assertEquals(0, child.exitValue(), () -> "Probe JVM failed:\n" + output);
++
++    List<String> lines = Arrays.asList(output.split("\\R"));
++    for (int iteration = 0; iteration < 3; iteration++) {
++      String marker = "ROUNDTRIP_OK=" + iteration;
++      assertEquals(1, Collections.frequency(lines, marker),
++          () -> "Expected one " + marker + " line from the probe:\n" + output);
++    }
++  }
++}
