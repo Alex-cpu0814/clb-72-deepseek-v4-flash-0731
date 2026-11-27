@@ -1,0 +1,19 @@
+{
+  "instance_id": "mdsplus__mdsplus-2379",
+  "repo": "MDSplus/mdsplus",
+  "base_commit": "f6c82e695f5b6964daeec2c4e0bc449a89be892a",
+  "version": "clb-v1-pilot",
+  "split": "test",
+  "datasets": [
+    "Alex-cpu0814/SWE-bench_CLB"
+  ],
+  "cohort": "java_upstream11",
+  "image": "yutu0814/sweb.eval.x86_64.mdsplus_1776_mdsplus-clb-200:latest",
+  "log_parser": "parse_log_jq",
+  "eval_type": "pass_and_fail",
+  "previous_instance_id": "mdsplus__mdsplus-clb-200",
+  "upstream_url": "https://github.com/MDSplus/mdsplus/pull/2379",
+  "pull_number": 2379,
+  "issue_number": 2375,
+  "rebuilt_image": "yutu0814/sweb.eval.x86_64.mdsplus_1776_mdsplus-2379:latest"
+}
